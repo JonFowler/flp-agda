@@ -1,27 +1,23 @@
 module FAlg where
 
-data FAlg : Set 
-data SAlg : Set where
-  _⊕_ : (t : FAlg) → (u : FAlg) → SAlg
-  K1 : SAlg
+data Alg : Set where
+  _⊕_ : (t : Alg) → (u : Alg) → Alg
+  K1 : Alg
+  _⊗_ : (t : Alg) → (u : Alg) → Alg
   
-data FAlg where
-  _⊗_ : (t : FAlg) → (u : FAlg) → FAlg
-  In : SAlg → FAlg
+data Val : Alg → Set where
+  V1 : Val K1
+  _,_ : {t u : Alg} → (a : Val t) → (b : Val u) → Val (t ⊗ u)
+  inL : {t u : Alg} → (a : Val t) → Val (t ⊕ u)
+  inR : {t u : Alg} → (b : Val u) → Val (t ⊕ u)
   
-data FVal : FAlg → Set where
-  V1 : FVal (In K1)
-  _,_ : {t u : FAlg} → (a : FVal t) → (b : FVal u) → FVal (t ⊗ u)
-  inL : {t u : FAlg} → (a : FVal t) → FVal (In (t ⊕ u))
-  inR : {t u : FAlg} → (b : FVal u) → FVal (In (t ⊕ u))
-  
-fstV : {t u : FAlg} → FVal (t ⊗ u) → FVal t
+fstV : {t u : Alg} → Val (t ⊗ u) → Val t
 fstV (a , b) = a
 
-sndV : {t u : FAlg} → FVal (t ⊗ u) → FVal u
+sndV : {t u : Alg} → Val (t ⊗ u) → Val u
 sndV (a , b) = b
 
-caseV : {t u : FAlg} {A : Set} → FVal (In (t ⊕ u)) → (FVal t → A) → (FVal u → A) → A
+caseV : {t u : Alg} {A : Set} → Val (t ⊕ u) → (Val t → A) → (Val u → A) → A
 caseV (inL v) l r = l v
 caseV (inR v) l r = r v
 
