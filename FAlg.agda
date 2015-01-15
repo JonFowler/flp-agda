@@ -5,19 +5,19 @@ data Alg : Set where
   K1 : Alg
   _⊗_ : (t : Alg) → (u : Alg) → Alg
   
-data Val : Alg → Set where
-  V1 : Val K1
-  _,_ : {t u : Alg} → (a : Val t) → (b : Val u) → Val (t ⊗ u)
-  inL : {t u : Alg} → (a : Val t) → Val (t ⊕ u)
-  inR : {t u : Alg} → (b : Val u) → Val (t ⊕ u)
+data PVal : Alg → Set where
+  V1 : PVal K1
+  _,_ : {t u : Alg} → (a : PVal t) → (b : PVal u) → PVal (t ⊗ u)
+  inL : {t u : Alg} → (a : PVal t) → PVal (t ⊕ u)
+  inR : {t u : Alg} → (b : PVal u) → PVal (t ⊕ u)
   
-fstV : {t u : Alg} → Val (t ⊗ u) → Val t
+fstV : {t u : Alg} → PVal (t ⊗ u) → PVal t
 fstV (a , b) = a
 
-sndV : {t u : Alg} → Val (t ⊗ u) → Val u
+sndV : {t u : Alg} → PVal (t ⊗ u) → PVal u
 sndV (a , b) = b
 
-caseV : {t u : Alg} {A : Set} → Val (t ⊕ u) → (Val t → A) → (Val u → A) → A
+caseV : {t u : Alg} {A : Set} → PVal (t ⊕ u) → (PVal t → A) → (PVal u → A) → A
 caseV (inL v) l r = l v
 caseV (inR v) l r = r v
 
