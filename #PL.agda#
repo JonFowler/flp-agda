@@ -172,8 +172,12 @@ data _⇓_ {t : Alg} : {n : ℕ} {Γ : Cxt n} → Exp Γ t × Env Γ → Val Γ 
                          
 ⇓-subNorm : ∀ {t n} {Γ : Cxt n} {a : Val Γ t} → (e : Exp Γ t) → (s : Env Γ) →  
                  Σ (Val [] t) (λ x → (subsEnv e s , []) ⇓ x)
-⇓-subNorm {t ⊕ t₁} e s = {!e!}
-⇓-subNorm {K1} e s = {!e!}
+⇓-subNorm {t ⊕ t₁} e s = {!!}
+⇓-subNorm {K1} (val a₁) s = {!!}
+⇓-subNorm {K1} (var x p) s = {!!}
+⇓-subNorm {K1} (fst e) s = {!!}
+⇓-subNorm {K1} (snd e) s = {!!}
+⇓-subNorm {K1} (case e e₁ e₂) s = {!!}
 ⇓-subNorm {t ⊗ t₁} e s = {!!}
 
 --⇓-norm : ∀ {t } (e : Exp [] t) → Σ (Val [] t) (λ x → e ⇓ x)
