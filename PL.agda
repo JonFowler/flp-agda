@@ -7,7 +7,7 @@ open import Data.Vec hiding (_>>=_)
 open import Data.Empty
 open import Data.Product 
 open import Data.Sum
-open import Relation.Binary.PropositionalEquality
+open import Relation.Binary.PropositionalEquality hiding ([_])
 
 Cxt : ℕ → Set
 Cxt n = Vec Alg n
@@ -65,15 +65,15 @@ VarRule' {n}{o} Γ Γ' = ∀{t' m'} (Δ' : Cxt m') (x : Fin (m' + n)) → Δ' ++
 VarRuleInj : ∀{n o}{Γ : Cxt n}{Γ' : Cxt o} → VarRule' Γ Γ' → VarRule Γ Γ'
 VarRuleInj P Δ v p = inj₂ (P Δ v p)
             
-MapVarE : ∀{m n o} → Alg → Cxt n → Cxt o → Cxt m → Set
-MapVarE t Γ Γ' Δ = Exp (Δ ++ Γ) t → Exp (Δ ++ Γ') t
+MapVarE : ∀{m n o} → Cxt m → Alg → Cxt n → Cxt o  → Set
+MapVarE Δ t Γ Γ' = Exp (Δ ++ Γ) t → Exp (Δ ++ Γ') t
 
-MapVarV : ∀{m n o} → Alg → Cxt n → Cxt o → Cxt m → Set
-MapVarV t Γ Γ' Δ = Val (Δ ++ Γ) t → Val (Δ ++ Γ') t
+MapVarV : ∀{m n o} → Cxt n → Alg → Cxt o → Cxt m → Set
+MapVarV Δ t Γ Γ' = Val (Δ ++ Γ) t → Val (Δ ++ Γ') t
 
-mapVarE : ∀ {t m n o}{Γ : Cxt n}{Γ' : Cxt o} → VarRule Γ Γ' → (Δ : Cxt m) → MapVarE t Γ Γ' Δ
+mapVarE : ∀ {t m n o}{Γ : Cxt n}{Γ' : Cxt o} → VarRule Γ Γ' → (Δ : Cxt m) → MapVarE Δ t Γ Γ' 
 
-mapVarV : ∀ {t m n o}{Γ : Cxt n}{Γ' : Cxt o} → VarRule Γ Γ' → (Δ : Cxt m) → MapVarV t Γ Γ' Δ
+mapVarV : ∀ {t m n o}{Γ : Cxt n}{Γ' : Cxt o} → VarRule Γ Γ' → (Δ : Cxt m) → MapVarV Δ t Γ Γ'
    
 mapVarE P Δ (val a) = val (mapVarV P Δ a)
 mapVarE P Δ (var x p) with P Δ x p 
@@ -98,7 +98,7 @@ swapVar (x ∷ Δ) (suc v) (there p) with swapVar Δ v p
 swapVar (x ∷ Δ) (suc v) (there p) | v' , p' = suc v' , there p'
 
 swapE : {m n : ℕ} {s : Alg} {Γ : Cxt n} {t t1 : Alg} (Δ : Cxt m)  → 
-     MapVarE s (t ∷ t1 ∷ Γ) (t1 ∷ t ∷ Γ) Δ  
+     MapVarE Δ s (t ∷ t1 ∷ Γ) (t1 ∷ t ∷ Γ)
 swapE = mapVarE (VarRuleInj swapVar)
 
 embVar : ∀ {u t n}{Γ : Cxt n} → Σ (Fin n)       (λ v → Γ       [ v ]= t) → 
@@ -112,11 +112,11 @@ addVar (t' ∷ Δ) zero here = zero , here
 addVar (x ∷ Δ) (suc v) (there p) = embVar (addVar Δ v p)
 
 addE : {m n : ℕ} {s : Alg} {Γ : Cxt n}  (Δ : Cxt m) (t : Alg)  → 
-     MapVarE s Γ (t ∷ Γ) Δ  
+     MapVarE Δ s Γ (t ∷ Γ)
 addE Δ t = mapVarE (VarRuleInj (addVar {t = t})) Δ
 
 addV : {m n : ℕ} {s : Alg} {Γ : Cxt n}  (Δ : Cxt m) (t : Alg)  → 
-     MapVarV s Γ (t ∷ Γ) Δ  
+     MapVarV Δ s Γ (t ∷ Γ) 
 addV Δ t = mapVarV (VarRuleInj (addVar {t = t})) Δ
 
 _∷E_ : {n : ℕ} {s : Alg} {Γ : Cxt n} → (t : Alg) → Exp Γ s → Exp (t ∷ Γ) s
@@ -129,107 +129,36 @@ data EnvG (P : {m : ℕ} → Cxt m → Alg → Set) : {n : ℕ} → Cxt n → Se
   [] : EnvG P []
   _∷_ : ∀ {t n} {Γ : Cxt n} → P Γ t → EnvG P Γ → EnvG P (t ∷ Γ)
   
---Env : {n : ℕ} → Cxt n → Set
---Env = EnvG Exp
---  
---emb : {n : ℕ} → Fin n → Fin (suc n)
---emb zero = zero
---emb (suc i) = suc (emb i)
---
---_C-_ : {n : ℕ}  → Cxt n → (i : Fin n) → Cxt (n ℕ-ℕ emb i)
---_C-_  Γ zero    = Γ 
---_C-_  (x ∷ Γ) (suc i) = Γ C- i
---
---_C1-_ : {n : ℕ}  → Cxt n → (i : Fin n) → Cxt (n ℕ-ℕ suc i)
---_C1-_  (x ∷ Γ) zero    = Γ 
---_C1-_  (x ∷ Γ) (suc i) = Γ C1- i 
---  
---lookupE : {n : ℕ}{Γ : Cxt n} → (i : Fin n) → Env Γ → Exp (Γ C1- i) (lookup i Γ) 
---lookupE zero (x ∷ s) = x 
---lookupE (suc i) (x ∷ s) = lookupE i s 
---
---State : Set → Set → Set
---State S A = S → (A × S)
---
---subsV : ∀ {m n t u} {Γ : Cxt n} → (Δ : Cxt m) → Val (Δ ++ t ∷ Γ) u → Exp Γ t → Val (Δ ++ Γ) u
---
---subsE : ∀ {m n t u} {Γ : Cxt n} → (Δ : Cxt m) → Exp (Δ ++ t ∷ Γ) u → Exp Γ t → Exp (Δ ++ Γ) u
---
---
---temp2 : ∀{m n} {Γ : Cxt n} {s : Alg} {t : Alg} → (Δ : Cxt m) → (x : Fin (m + (suc n))) → 
---                   (Δ ++ t ∷ Γ) [ x ]= s → Exp Γ t →
---       Σ (Fin (m + n)) (λ x1 → (Δ ++ Γ) [ x1 ]= s ) ⊎ Exp (Δ ++ Γ) s 
---temp2 [] zero here e = inj₂ e 
---temp2 [] (suc x) (there p) _ = inj₁ (x , p)
---temp2 (t ∷ Δ) zero here _ = inj₁ (zero , here)
---temp2 (t ∷ Δ) (suc x) (there p) e with temp2 Δ x p e
---temp2 (t ∷ Δ) (suc x) (there p) _ | inj₁ (x' , p') = inj₁ ((suc x') , (there p'))
---temp2 (t ∷ Δ) (suc x) (there p) _ | inj₂ e = inj₂ ( t ∷E e )
---
---subsE Δ (val a) e2 = val (subsV Δ a e2)
---subsE Δ (var x p) e2 with temp2 Δ x p e2
---subsE Δ (var x p) e2 | inj₁ (x' , p') = var x' p'
---subsE Δ (var x p) e2 | inj₂ e = e
---subsE Δ (fst e) e2 = fst (subsE Δ e e2)
---subsE Δ (snd e) e2 = snd (subsE Δ e e2)
---subsE Δ (case {t} {u} e e₁ e₂) e2 = case (subsE Δ e e2) (subsE (t ∷ Δ) e₁ e2) (subsE (u ∷ Δ) e₂ e2)
---
---subsV Δ V1 e = V1
---subsV Δ (a , b) e = (subsE Δ a e) , (subsE Δ b e)
---subsV Δ (inL a) e = inL (subsE Δ a e)
---subsV Δ (inR b) e = inR (subsE Δ b e)
---
---subsEnv : ∀ {n u} {Γ : Cxt n} → Exp Γ u → Env Γ → Exp [] u
---subsEnv e [] = e
---subsEnv e (x ∷ s) = subsEnv (subsE [] e x) s
---
---
---data _⇓_ {t : Alg} : {n : ℕ} {Γ : Cxt n} → Exp Γ t × Env Γ → Val Γ t → Set where
---  ⇓-val : {n : ℕ} {Γ : Cxt n}  {s : Env Γ} → {a : Val Γ t} → (val a , s) ⇓ a
---  ⇓-var0 : {n : ℕ} {Γ : Cxt n} {e : Exp Γ t} {s : Env Γ} {a : Val Γ t} → (e , s) ⇓ a  → (var zero here , e ∷ s) ⇓ (t ∷V a )
---  ⇓-var : ∀ {n t1}  {i : Fin n} {Γ : Cxt n} {e : Exp Γ t1} {s : Env Γ} {a : Val Γ t} {p : Γ [ i ]= t} → (var i p , s) ⇓ a  → (var (suc i) (there p) , e ∷ s) ⇓ (t1 ∷V a )
---  ⇓-fst : ∀ {u} {n : ℕ} {Γ : Cxt n} {s : Env Γ} {e : Exp Γ (t ⊗ u)} {e1 : Exp Γ t} {e2 : Exp Γ u} {a : Val Γ t} 
---                         → (e , s) ⇓ ( e1 , e2 ) → (e1 , s) ⇓ a → (fst e , s) ⇓ a
---  ⇓-snd : ∀ {u} {n : ℕ} {Γ : Cxt n}  {s : Env Γ} {e : Exp Γ (u ⊗ t)} {e1 : Exp Γ u} {e2 : Exp Γ t} {a : Val Γ t} 
---                         → (e , s) ⇓ ( e1 , e2 ) → (e2 , s) ⇓ a → (snd e , s) ⇓ a
---  ⇓-caseL : ∀ {u1 u2} {n : ℕ} {Γ : Cxt n}  {s : Env Γ} {e : Exp Γ (u1 ⊕ u2)} {e1 : Exp (u1 ∷ Γ) t } {e2 : Exp (u2 ∷ Γ) t} 
---                      {a : Exp Γ u1} {b : Val Γ t}
---                         → (e , s) ⇓ (inL a) → (subsE [] e1 a , s) ⇓ b → (case e e1 e2 , s) ⇓ b 
---  ⇓-caseR : ∀ {u1 u2} {n : ℕ} {Γ : Cxt n}  {s : Env Γ} {e : Exp Γ (u1 ⊕ u2)} {e1 : Exp (u1 ∷ Γ) t } {e2 : Exp (u2 ∷ Γ) t} 
---                      {a : Exp Γ u2} {b : Val Γ t}
---                         → (e , s) ⇓ (inR a) → (subsE [] e2 a , s) ⇓ b → (case e e1 e2 , s) ⇓ b 
---
---                         
---⇓-subNorm : ∀ {t n} {Γ : Cxt n} {a : Val Γ t} → (e : Exp Γ t) → (s : Env Γ) →  
---                 Σ (Val [] t) (λ x → (subsEnv e s , []) ⇓ x)
---⇓-subNorm {t ⊕ t₁} e s = {!e!}
---⇓-subNorm {K1} e s = {!e!}
---⇓-subNorm {t ⊗ t₁} e s = {!!}
+Env : {n : ℕ} → Cxt n → Set
+Env = EnvG Exp
 
---⇓-norm : ∀ {t } (e : Exp [] t) → Σ (Val [] t) (λ x → e ⇓ x)
---⇓-norm (val a) = a , ⇓-val
---⇓-norm (var () p)
---⇓-norm (fst e) = {!!} 
---⇓-norm (snd e) = {!!}
---⇓-norm (case e0 e1 e2) = {!!}
+embExpVar : ∀{n u t}{Γ : Cxt n} → Exp Γ t  ⊎  Σ (Fin n) (λ x →  Γ [ x ]= t) 
+                              → Exp (u ∷ Γ) t  ⊎  Σ (Fin (suc n)) (λ x →  (u ∷ Γ) [ x ]= t)
+embExpVar {u = u} (inj₁ x) = inj₁ (u ∷E x)
+embExpVar (inj₂ y) = inj₂ (embVar y)
 
 
-
-
+subsVar : ∀{n t}{Γ : Cxt n} → (e : Exp Γ t) → VarRule (t ∷ Γ) Γ
+subsVar e [] zero here = inj₁ e
+subsVar e [] (suc v) (there p) = inj₂ (v , p)
+subsVar e (t' ∷ Δ) zero here = inj₂ (zero , here)
+subsVar e (x ∷ Δ) (suc v) (there p) = embExpVar (subsVar e Δ v p)
   
-  
- 
---eval : ∀ {t n} {Γ : Cxt n} → Exp Γ t  → Env Γ → Val Γ t
---eval (val a) s = a  
---eval {Γ = t ∷ Γ} (var zero here) (e ∷ s) = t ∷V eval e s 
---eval {Γ = t ∷ Γ} (var (suc x) (there p)) (e ∷ s) = t ∷V eval (var x p) s
---eval (fst e) s = {!eval (fstV (eval e s)) s!}
---eval (snd e) s = {!!}
---eval (case e1 e2 e3) s with eval e1 s 
---eval (case e1 e2 e3) s | inL a = {!eval (subsE [] e2 a) s!}
---eval (case e1 e2 e3) s | inR b = {!!}
+subsE : ∀ {m n t u} {Γ : Cxt n} → (Δ : Cxt m) → Exp Γ t → MapVarE Δ u (t ∷ Γ) Γ  
+subsE Δ e = mapVarE (subsVar e) Δ
+
+_⟨_⟩ : ∀{n u t}{Γ : Cxt n} → Exp (u ∷ Γ) t → Exp Γ u → Exp Γ t
+f ⟨ e ⟩ = subsE [] e f
+
+data _⇓_ {t : Alg} : Exp [] t → Val [] t → Set where
+  ⇓-val : {a : Val [] t} → val a ⇓ a
+  ⇓-fst : ∀{u}{e : Exp [] (t ⊗ u)} {e1 : Exp [] t} {e2 : Exp [] u} {a : Val [] t} 
+                         → e  ⇓ ( e1 , e2 ) → e1  ⇓ a → fst e  ⇓ a
+  ⇓-snd : ∀{u}{e : Exp [] (u ⊗ t)} {e1 : Exp [] u} {e2 : Exp [] t} {a : Val [] t} 
+                         → e  ⇓ ( e1 , e2 ) → e2  ⇓ a → snd e  ⇓ a
+  ⇓-caseL : ∀{u v}{e : Exp [] (u ⊕ v)}{f1 : Exp [ u ] t}{f2 : Exp [ v ] t} {e' : Exp [] u}
+   {a : Val [] t} → e ⇓ (inL e') → f1 ⟨ e' ⟩ ⇓ a → case e f1 f2 ⇓ a 
+  ⇓-caseR : ∀{u v}{e : Exp [] (u ⊕ v)}{f1 : Exp [ u ] t}{f2 : Exp [ v ] t}{e' : Exp [] v}
+   {a : Val [] t} → e ⇓ (inR e') → f2 ⟨ e' ⟩ ⇓ a → case e f1 f2 ⇓ a 
 
 
---eval (ƛ e) s = {!s!}
-  
---eval : ∀ {Γ n} → Exp Γ n →  
