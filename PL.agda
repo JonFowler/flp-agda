@@ -12,9 +12,9 @@ open import Relation.Binary.PropositionalEquality hiding ([_])
 Cxt : ℕ → Set
 Cxt n = Vec Alg n
 
---data _×_ : Set → Set → Set1 where
---  _,_ : ∀ {A B} → (a : A) → (b : B) → A × B
-
+{-
+EXPRESSION DEFINITION
+-}
 
 data Exp {n : ℕ} (Γ : Cxt n) (t : Alg) : Set
 
@@ -31,8 +31,6 @@ data Exp {n} Γ t where
   snd : {u : Alg} → Exp Γ (u ⊗ t) → Exp Γ t
   case : {u v : Alg} → Exp Γ (u ⊕ v) → 
                           Exp (u ∷ Γ) t → Exp (v ∷ Γ) t → Exp Γ t
---  ƛ : {t u : FAlg} → Exp (t ∷ Γ) u → Exp Γ u
-
 fstV : ∀ {n t u} {Γ : Cxt n} → Val Γ (t ⊗ u) → Exp Γ t
 fstV (a , b) = a
 
@@ -43,16 +41,9 @@ caseV : ∀ {n t u} {A : Set} {Γ : Cxt n} → Val Γ (t ⊕ u) → (Exp Γ t �
 caseV (inL a) f g = f a
 caseV (inR b) f g = g b
 
---ExpSub : {n : ℕ} {s : Alg} {Γ : Cxt n} (P : ∀ {m} → Cxt m → Σ ℕ Cxt)  → 
---      Exp Γ s →  
---      (∀ {m t} {Δ : Cxt m} → (i : Fin m) → ( Δ [ i ]= t ) → Exp (proj₂ (P Γ)) t )→ 
---      Exp (proj₂ (P Γ)) s
---ExpSub P (val a) f = {!!}
---ExpSub P (var x p) f = f x p
---ExpSub P (fst e) f = fst (ExpSub P e f)
---ExpSub P (snd e) f = snd (ExpSub P e f)
---ExpSub P (case e e₁ e₂) f = case (ExpSub P e f) (ExpSub P e₁ f) (ExpSub P e₂ f)
-
+{- 
+SUBSTITUITION RULES
+-}
 VarRule : ∀{n o}(Γ : Cxt n)(Γ' : Cxt o) → Set
 VarRule {n}{o} Γ Γ' = ∀{t' m'} (Δ' : Cxt m') (x : Fin (m' + n)) → Δ' ++ Γ [ x ]= t' → 
             Exp (Δ' ++ Γ') t'  ⊎  
@@ -125,6 +116,10 @@ _∷E_ = addE []
 _∷V_ : {n : ℕ} {s : Alg} {Γ : Cxt n} → (t : Alg) → Val Γ s → Val (t ∷ Γ) s
 _∷V_ = addV []
 
+{-
+ENVIRONMENT (UNUSED)
+-}
+
 data EnvG (P : {m : ℕ} → Cxt m → Alg → Set) : {n : ℕ} → Cxt n → Set where
   [] : EnvG P []
   _∷_ : ∀ {t n} {Γ : Cxt n} → P Γ t → EnvG P Γ → EnvG P (t ∷ Γ)
@@ -136,7 +131,6 @@ embExpVar : ∀{n u t}{Γ : Cxt n} → Exp Γ t  ⊎  Σ (Fin n) (λ x →  Γ [
                               → Exp (u ∷ Γ) t  ⊎  Σ (Fin (suc n)) (λ x →  (u ∷ Γ) [ x ]= t)
 embExpVar {u = u} (inj₁ x) = inj₁ (u ∷E x)
 embExpVar (inj₂ y) = inj₂ (embVar y)
-
 
 subsVar : ∀{n t}{Γ : Cxt n} → (e : Exp Γ t) → VarRule (t ∷ Γ) Γ
 subsVar e [] zero here = inj₁ e
@@ -150,6 +144,9 @@ subsE Δ e = mapVarE (subsVar e) Δ
 _⟨_⟩ : ∀{n u t}{Γ : Cxt n} → Exp (u ∷ Γ) t → Exp Γ u → Exp Γ t
 f ⟨ e ⟩ = subsE [] e f
 
+{-
+EVALUATION
+-}
 data _⇓_ {t : Alg} : Exp [] t → Val [] t → Set where
   ⇓-val : {a : Val [] t} → val a ⇓ a
   ⇓-fst : ∀{u}{e : Exp [] (t ⊗ u)} {e1 : Exp [] t} {e2 : Exp [] u} {a : Val [] t} 
