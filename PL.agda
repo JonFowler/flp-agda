@@ -29,7 +29,7 @@ Val Γ t = ValG (Exp Γ) t
 
 
 data ExpG {n : ℕ} (P : {n' : ℕ} → Cxt n' → Alg → Set) 
-                  (Γ : Cxt n) (t : Alg) : Set
+                  (Γ : Cxt n) (t : Alg) : Set                  
 
 data ExpG {n} P Γ t where
   val : (a : Val Γ t) → ExpG P Γ t 
@@ -163,6 +163,7 @@ f ⟨ e ⟩ = subsE [] e f
 {-
 --EVALUATION
 -}
+
 data _⇓_ {t : Alg} : Exp [] t → Val [] t → Set where
   ⇓-val : {a : Val [] t} → val a ⇓ a
   ⇓-fst : ∀{u}{e : Exp [] (t ⊗ u)} {e1 : Exp [] t} {e2 : Exp [] u} {a : Val [] t} 
