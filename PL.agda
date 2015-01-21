@@ -16,14 +16,17 @@ Cxt n = Vec Alg n
 EXPRESSION DEFINITION
 -}
 
+data ValG (P : Alg → Set) : Alg → Set where
+  V1 : ValG P K1
+  _,_ : {t u : Alg} → (a : P t) → (b : P u) → ValG P (t ⊗ u)
+  inL : {t u : Alg} → (a : P t) → ValG P (t ⊕ u)
+  inR : {t u : Alg} → (b : P u) → ValG P (t ⊕ u)
+  
 data Exp {n : ℕ} (Γ : Cxt n) (t : Alg) : Set
-
-data Val {n : ℕ} (Γ : Cxt n) : Alg → Set where
-  V1 : Val Γ K1
-  _,_ : {t u : Alg} → (a : Exp Γ t) → (b : Exp Γ u) → Val Γ (t ⊗ u)
-  inL : {t u : Alg} → (a : Exp Γ t) → Val Γ (t ⊕ u)
-  inR : {t u : Alg} → (b : Exp Γ u) → Val Γ (t ⊕ u)
  
+Val : {n : ℕ} → Cxt n → Alg → Set
+Val Γ t = ValG (Exp Γ) t
+
 data Exp {n} Γ t where
   val : (a : Val Γ t) → Exp Γ t 
   var : (x : Fin n) → (p : Γ [ x ]= t) → Exp Γ t
@@ -31,13 +34,14 @@ data Exp {n} Γ t where
   snd : {u : Alg} → Exp Γ (u ⊗ t) → Exp Γ t
   case : {u v : Alg} → Exp Γ (u ⊕ v) → 
                           Exp (u ∷ Γ) t → Exp (v ∷ Γ) t → Exp Γ t
-fstV : ∀ {n t u} {Γ : Cxt n} → Val Γ (t ⊗ u) → Exp Γ t
+
+fstV : ∀ {t u}{P : Alg → Set} → ValG P (t ⊗ u) → P t
 fstV (a , b) = a
 
-sndV : ∀ {n t u} {Γ : Cxt n} → Val Γ (u ⊗ t) → Exp Γ t
+sndV : ∀ {t u}{P : Alg → Set} → ValG P (u ⊗ t) → P t
 sndV (a , b) = b
 
-caseV : ∀ {n t u} {A : Set} {Γ : Cxt n} → Val Γ (t ⊕ u) → (Exp Γ t → A) → (Exp Γ u → A) → A
+caseV : ∀ {t u} {A : Set}{P : Alg → Set} → ValG P (t ⊕ u) → (P t → A) → (P u → A) → A
 caseV (inL a) f g = f a
 caseV (inR b) f g = g b
 
@@ -117,7 +121,7 @@ _∷V_ : {n : ℕ} {s : Alg} {Γ : Cxt n} → (t : Alg) → Val Γ s → Val (t 
 _∷V_ = addV []
 
 {-
-ENVIRONMENT (UNUSED)
+--ENVIRONMENT (UNUSED)
 -}
 
 data EnvG (P : {m : ℕ} → Cxt m → Alg → Set) : {n : ℕ} → Cxt n → Set where
@@ -145,7 +149,7 @@ _⟨_⟩ : ∀{n u t}{Γ : Cxt n} → Exp (u ∷ Γ) t → Exp Γ u → Exp Γ t
 f ⟨ e ⟩ = subsE [] e f
 
 {-
-EVALUATION
+--EVALUATION
 -}
 data _⇓_ {t : Alg} : Exp [] t → Val [] t → Set where
   ⇓-val : {a : Val [] t} → val a ⇓ a
