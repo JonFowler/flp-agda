@@ -27,6 +27,18 @@ data Exp {n : ℕ} (Γ : Cxt n) (t : Alg) : Set
 Val : {n : ℕ} → Cxt n → Alg → Set
 Val Γ t = ValG (Exp Γ) t
 
+
+data ExpG {n : ℕ} (P : {n' : ℕ} → Cxt n' → Alg → Set) 
+                  (Γ : Cxt n) (t : Alg) : Set
+
+data ExpG {n} P Γ t where
+  val : (a : Val Γ t) → ExpG P Γ t 
+  var : (x : Fin n) → (p : Γ [ x ]= t) → ExpG P Γ t
+  fst : {u : Alg} → P Γ (t ⊗ u) → ExpG P Γ t 
+  snd : {u : Alg} → P Γ (u ⊗ t) → ExpG P Γ t
+  case : {u v : Alg} → P Γ (u ⊕ v) → 
+                          P (u ∷ Γ) t → P (v ∷ Γ) t → ExpG P Γ t
+
 data Exp {n} Γ t where
   val : (a : Val Γ t) → Exp Γ t 
   var : (x : Fin n) → (p : Γ [ x ]= t) → Exp Γ t
