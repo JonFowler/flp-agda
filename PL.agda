@@ -165,14 +165,14 @@ f ⟨ e ⟩ = subsE [] e f
 -}
 
 data _⇓_ {t : Alg} : Exp [] t → Val [] t → Set where
-  ⇓-val : {a : Val [] t} → val a ⇓ a
-  ⇓-fst : ∀{u}{e : Exp [] (t ⊗ u)} {e1 : Exp [] t} {e2 : Exp [] u} {a : Val [] t} 
+  ⇓val : {a : Val [] t} → val a ⇓ a
+  ⇓fst : ∀{u}{e : Exp [] (t ⊗ u)} {e1 : Exp [] t} {e2 : Exp [] u} {a : Val [] t} 
                          → e  ⇓ ( e1 , e2 ) → e1  ⇓ a → fst e  ⇓ a
-  ⇓-snd : ∀{u}{e : Exp [] (u ⊗ t)} {e1 : Exp [] u} {e2 : Exp [] t} {a : Val [] t} 
+  ⇓snd : ∀{u}{e : Exp [] (u ⊗ t)} {e1 : Exp [] u} {e2 : Exp [] t} {a : Val [] t} 
                          → e  ⇓ ( e1 , e2 ) → e2  ⇓ a → snd e  ⇓ a
-  ⇓-caseL : ∀{u v}{e : Exp [] (u ⊕ v)}{f1 : Exp [ u ] t}{f2 : Exp [ v ] t} {e' : Exp [] u}
+  ⇓caseL : ∀{u v}{e : Exp [] (u ⊕ v)}{f1 : Exp [ u ] t}{f2 : Exp [ v ] t} {e' : Exp [] u}
    {a : Val [] t} → e ⇓ (inL e') → f1 ⟨ e' ⟩ ⇓ a → case e f1 f2 ⇓ a 
-  ⇓-caseR : ∀{u v}{e : Exp [] (u ⊕ v)}{f1 : Exp [ u ] t}{f2 : Exp [ v ] t}{e' : Exp [] v}
+  ⇓caseR : ∀{u v}{e : Exp [] (u ⊕ v)}{f1 : Exp [ u ] t}{f2 : Exp [ v ] t}{e' : Exp [] v}
    {a : Val [] t} → e ⇓ (inR e') → f2 ⟨ e' ⟩ ⇓ a → case e f1 f2 ⇓ a 
 
 

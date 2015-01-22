@@ -95,8 +95,49 @@ insert free here a = val a
 data _<=_ : {γ : Alg} → EnvF γ → EnvF γ → Set where
   ref : {γ : Alg} {a : EnvF γ} → a <= a 
   free : {γ : Alg} {a : EnvF γ} → free <= a 
-  pair : {γ : Alg} {a b a' b' : EnvF γ} → 
+  pair : {γ δ : Alg} {a a' : EnvF γ}{b b' : EnvF δ} → 
     a <= a' → b <= b' → val (a , b) <= val (a' , b')
+  inL :  {γ δ : Alg} {a a'  : EnvF γ} → a <= a' → val (inL {u = δ} a) <= val (inL a')
+  inR :  {γ δ : Alg} {a a'  : EnvF γ} → a <= a' → val (inR {t = δ} a) <= val (inR a')
+  
+embVarF : {γ t : Alg} {s s' : EnvF γ} → s <= s' → VarF s t →  VarF s' t
+embVarF o here          = here
+embVarF ref (there fst v)  = there fst v
+embVarF (pair o _) (there fst v)  = there fst (embVarF o v)
+embVarF ref (there snd v) = there snd v
+embVarF (pair _ o₁)(there snd v) = there snd (embVarF o₁ v)
+embVarF ref (there inL v) = there inL v
+embVarF (inL o) (there inL v) = there inL (embVarF o v) 
+embVarF ref (there inR v)  = there inR v
+embVarF (inR o) (there inR v) = there inR (embVarF o v) 
+
+embValF : {n : ℕ}{γ t : Alg}{Γ : Cxt n}{s s' : EnvF γ} →  s <= s' → ValF Γ s t → ValF Γ s' t
+
+embExpF : {n : ℕ}{γ t : Alg}{Γ : Cxt n}{s s' : EnvF γ} →  s <= s' → ExpF Γ s t → ExpF Γ s' t
+embExpF o (val a) = val (embValF o a)
+embExpF o (var v p) = var v p
+embExpF o (varF x) = varF (embVarF o x)
+embExpF o (fst e) = fst (embExpF o e)
+embExpF o (snd e) = snd (embExpF o e)
+embExpF o (case e e₁ e₂) = case (embExpF o e) (embExpF o e₁) (embExpF o e₂)
+
+embValF o V1 = V1
+embValF o (a , b) = (embExpF o a) , (embExpF o b)
+embValF o (inL a) = inL (embExpF o a)
+embValF o (inR b) = inR (embExpF o b)
+  
+S : ({γ : Alg} → EnvF γ → Alg → Set) → Alg → Alg → Set
+S P γ t = Σ (EnvF γ) (λ s → P s t)
+
+data _⇓*_ {t γ : Alg} : S (ExpF []) γ t → S (ValF []) γ t → Set where 
+  ⇓weak : {s s' s'' : EnvF γ}{e : ExpF [] s t}{a : ValF [] s' t} → 
+             (s , e) ⇓* (s' , a) → (o : s' <= s'') → (s , e) ⇓* (s'' , embValF o a)
+  ⇓val : {s : EnvF γ} {a : ValF [] s t} → (s , (val a)) ⇓* (s , a) 
+  ⇓fst : {s : EnvF γ} → {!!} ⇓* {!!} 
+
+--    a <= a' →  val  <= val (a' , b')
+
+  
   
 
 --data Test {t : Alg} (E : Alg → Set) (P : E t → ValG E t → Set)
