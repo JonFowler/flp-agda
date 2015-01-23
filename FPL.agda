@@ -134,6 +134,9 @@ data _⇓*_ {t γ : Alg} : S (ExpF []) γ t → S (ValF []) γ t → Set where
              (s , e) ⇓* (s' , a) → (o : s' <= s'') → (s , e) ⇓* (s'' , embValF o a)
   ⇓val : {s : EnvF γ} {a : ValF [] s t} → (s , (val a)) ⇓* (s , a) 
   ⇓fst : {s : EnvF γ} → {!!} ⇓* {!!} 
+  ⇓caseL : ∀{u v}{s s' s'' : EnvF γ  }{e : ExpF [] s (u ⊕ v)}
+   {f1 : ExpF (u ∷ []) s t}{f2 : ExpF (v ∷ []) s t} {e' : ExpF [] s' u}
+   {a : ValF [] s'' t} → (s , e) ⇓* (s' , inL e') → f1 ⟨ e' ⟩ ⇓ a → (? , case e f1 f2) ⇓* (? , a)
 
 --    a <= a' →  val  <= val (a' , b')
 
