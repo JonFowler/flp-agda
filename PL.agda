@@ -147,47 +147,27 @@ addVar [] (zero , here) = suc zero , there here
 addVar [] (suc x , there p) = embVar (addVar [] (x , p))
 addVar (t ∷ Γ) (zero , here) = zero , here
 addVar (t ∷ Γ) (suc x , there p) = embVar (addVar Γ (x , p))
---addVar [] zero here = suc zero , there here
---addVar [] (suc v) (there p) = embVar (addVar [] v p)
---addVar (t' ∷ Δ) zero here = zero , here
---addVar (x ∷ Δ) (suc v) (there p) = embVar (addVar Δ v p)
---
---addE : {m n : ℕ} {s : Alg} {Γ : Cxt n}  (Δ : Cxt m) (t : Alg)  → 
---     MapVarE Δ s Γ (t ∷ Γ)
---addE Δ t = mapVarE (VarRuleInj (addVar {t = t})) Δ
---
---addV : {m n : ℕ} {s : Alg} {Γ : Cxt n}  (Δ : Cxt m) (t : Alg)  → 
---     MapVarV Δ s Γ (t ∷ Γ) 
---addV Δ t = mapVarV (VarRuleInj (addVar {t = t})) Δ
---
---_∷E_ : {n : ℕ} {s : Alg} {Γ : Cxt n} → (t : Alg) → Exp Γ s → Exp (t ∷ Γ) s
---_∷E_ = addE []
---
---_∷V_ : {n : ℕ} {s : Alg} {Γ : Cxt n} → (t : Alg) → Val Γ s → Val (t ∷ Γ) s
---_∷V_ = addV []
---
 
-----ENVIRONMENT (UNUSED)
+addE : {m n : ℕ} {Γ : Cxt n}  (Δ : Cxt m) (t : Alg)  → Exp' Γ Δ t → Exp' (t ∷ Γ) Δ t
+addE Δ t = foldVar' addVar 
 
---
---data EnvG (P : {m : ℕ} → Cxt m → Alg → Set) : {n : ℕ} → Cxt n → Set where
---  [] : EnvG P []
---  _∷_ : ∀ {t n} {Γ : Cxt n} → P Γ t → EnvG P Γ → EnvG P (t ∷ Γ)
---  
---Env : {n : ℕ} → Cxt n → Set
---Env = EnvG Exp
---
+_∷E_ : {n : ℕ} {Γ : Cxt n} → (t : Alg) → Exp' Γ [] t → Exp' (t ∷ Γ) [] t
+_∷E_ t = addE [] t
+
+
 --embExpVar : ∀{n u t}{Γ : Cxt n} → Exp Γ t  ⊎  Σ (Fin n) (λ x →  Γ [ x ]= t) 
 --                              → Exp (u ∷ Γ) t  ⊎  Σ (Fin (suc n)) (λ x →  (u ∷ Γ) [ x ]= t)
 --embExpVar {u = u} (inj₁ x) = inj₁ (u ∷E x)
 --embExpVar (inj₂ y) = inj₂ (embVar y)
 --
---subsVar : ∀{n t}{Γ : Cxt n} → (e : Exp Γ t) → VarRule (t ∷ Γ) Γ
---subsVar e [] zero here = inj₁ e
---subsVar e [] (suc v) (there p) = inj₂ (v , p)
---subsVar e (t' ∷ Δ) zero here = inj₂ (zero , here)
---subsVar e (x ∷ Δ) (suc v) (there p) = embExpVar (subsVar e Δ v p)
---  
+subsVar : ∀{n t}{Γ : Cxt n}{P : Cxt n → ExpT} → (e : Exp' Γ [] t) → VarRule (t ∷ Γ) Γ Exp'
+subsVar e [] (zero , here) = inj₁ e
+subsVar e [] (suc v , there p) = inj₂ (v , p)
+subsVar e (t' ∷ Δ) (zero , here) = inj₂ (zero , here)
+subsVar {P = P} e (t ∷ Δ) (suc v , there p) with subsVar {P = P} e Δ (v , p)
+subsVar e (t ∷ Δ) (suc v , there p) | inj₁ e' = inj₁ {!addE  !}
+subsVar e (t ∷ Δ) (suc v , there p) | inj₂ x' = inj₂ (embVar x') --embExpVar (subsVar e Δ v p)
+  
 --subsE : ∀ {m n t u} {Γ : Cxt n} → (Δ : Cxt m) → Exp Γ t → MapVarE Δ u (t ∷ Γ) Γ  
 --subsE Δ e = mapVarE (subsVar e) Δ
 --
