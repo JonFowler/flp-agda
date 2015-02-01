@@ -56,19 +56,23 @@ Val Γ t = ValG (Exp Γ) t
 
 --ExpFold : {n : ℕ}(Γ : Cxt n) → ExpT → Set
 --ExpFold Γ A = {t : Alg}{m : ℕ}(Δ : Cxt m) → ExpG Γ A Δ t → A Δ t
---
---fmapExp : {n : ℕ}{Γ : Cxt n}{A B : ExpT} → 
---      ({m' : ℕ}{t : Alg} → (Δ' : Cxt m') → A Δ' t → B Δ' t) → 
---       {m : ℕ} {t : Alg} → (Δ  : Cxt m ) → ExpG Γ A Δ t → ExpG Γ B Δ t
---fmapExp f Δ (val V1) = val V1
---fmapExp f Δ (val (a , b)) = val (f Δ a , f Δ b)
---fmapExp f Δ (val (inL a)) = val (inL (f Δ a))
---fmapExp f Δ (val (inR b)) = val (inR (f Δ b))
---fmapExp f Δ (var x) = var x
---fmapExp f Δ (fst x) = fst (f Δ x)
---fmapExp f Δ (snd x) = snd (f Δ x)
---fmapExp f Δ (case {u = u}{v} x x₁ x₂) = case (f Δ x) (f (u ∷ Δ) x₁) (f (v ∷ Δ) x₂)
---
+
+--addblank : ∀{n A} (a : Vec A n)
+
+fmapExp : {n : ℕ}{Γ : Cxt n}{A B : ExpT} → 
+      ({m' : ℕ}{t : Alg} → (Δ' : Cxt m') → A (Δ' ++ Γ) t → B (Δ' ++ Γ) t) → 
+       {m : ℕ} {t : Alg} → (Δ  : Cxt m ) → ExpG A (Δ ++ Γ) t → ExpG B (Δ ++ Γ) t
+fmapExp f Δ (val V1) = val V1
+fmapExp f Δ (val (a , b)) = val (f Δ a , f Δ b)
+fmapExp f Δ (val (inL a)) = val (inL (f Δ a))
+fmapExp f Δ (val (inR b)) = val (inR (f Δ b))
+fmapExp f Δ (var x) = var x
+fmapExp f Δ (fst x) = fst (f Δ x)
+fmapExp f Δ (snd x) = snd (f Δ x)
+fmapExp f Δ (case {u = u}{v} x x₁ x₂) = case (f Δ x) (f (u ∷ Δ) x₁) (f (v ∷ Δ) x₂)
+
+
+
 ------ Nice version of foldExp doesn't work due to termination checker
 --foldExp : {n : ℕ}{Γ : Cxt n}{A : ExpT} → ExpFold Γ A → 
 --    {t : Alg}{m : ℕ} → (Δ : Cxt m) → Exp Γ Δ t → A Δ t
