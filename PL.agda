@@ -32,12 +32,12 @@ ExpT = {m : ℕ} → Cxt m → Alg → Set
 
 data ExpG {n : ℕ}(Γ : Cxt n)(P : ExpT){m : ℕ}(Δ : Cxt m)(t : Alg) : Set                  
 
-Var : {n : ℕ} → (Cxt n) → {m : ℕ} → (Δ : Cxt m) → (t : Alg) → Set
-Var {n} Γ {m} Δ t =  Σ (Fin (m + n)) (λ x → (Δ ++ Γ) [ x ]= t)
+Var : {n : ℕ} → (Cxt n) → (t : Alg) → Set
+Var {n} Γ t =  Σ (Fin n) (λ x → Γ [ x ]= t)
 
 data ExpG {n} Γ P {m} Δ t where
   val : (a : ValG (P Δ) t) → ExpG Γ P Δ t 
-  var : Var Γ Δ t → ExpG Γ P Δ t
+  var : Var (Δ ++ Γ) t → ExpG Γ P Δ t
   fst : {u : Alg} → P Δ (t ⊗ u) → ExpG Γ P Δ t 
   snd : {u : Alg} → P Δ (u ⊗ t) → ExpG Γ P Δ t
   case : {u v : Alg} → P Δ (u ⊕ v) → 
@@ -94,24 +94,24 @@ caseV (inR b) f g = g b
 
 ----SUBSTITUITION RULES
 
-VarRule : ∀{n o}(Γ : Cxt n)(Γ' : Cxt o)(P : ExpT) → Set
-VarRule {n}{o} Γ Γ' P = ∀{t m} (Δ : Cxt m) → (Var Γ Δ t) → 
-            P Δ t  ⊎ Var Γ' Δ t
+VarRule : ∀{n o}(Γ : Cxt n)(Γ' : Cxt o)(P : (Cxt o) → ExpT) → Set
+VarRule {n}{o} Γ Γ' P = ∀{t m} (Δ : Cxt m) → (Var (Δ ++ Γ) t) → 
+            P Γ' Δ t  ⊎ Var (Δ ++ Γ') t
             --Σ (Fin (m + o)) (λ x' → Δ ++ Γ' [ x' ]= t) 
             
 VarRule' : ∀{n o}(Γ : Cxt n)(Γ' : Cxt o) → Set
-VarRule' {n}{o} Γ Γ' = ∀{t' m'} (Δ' : Cxt m') (x : Fin (m' + n)) → Δ' ++ Γ [ x ]= t' → 
-            Σ (Fin (m' + o)) (λ x' → Δ' ++ Γ' [ x' ]= t') 
+VarRule' {n}{o} Γ Γ' = ∀{t m} (Δ : Cxt m) → Var (Δ ++ Γ) t → 
+           Var (Δ ++ Γ') t 
             
---VarRuleInj : ∀{n o}{Γ : Cxt n}{Γ' : Cxt o}(P : ExpT Γ') → VarRule' Γ Γ' → VarRule Γ Γ' P
---VarRuleInj P f Δ v p = inj₂ (f Δ v p)
+VarRuleInj : ∀{n o}{Γ : Cxt n}{Γ' : Cxt o}{P : (Cxt o) → ExpT} → VarRule' Γ Γ' → VarRule Γ Γ' P
+VarRuleInj f Δ x = inj₂ (f Δ x)
             
 MapVar : ∀{m n o} → Cxt m → (Γ : Cxt n) → (Γ' : Cxt o)  → 
         (P : ExpT) →  Alg →  Set
 MapVar Δ Γ Γ' P t = ExpG Γ P Δ t → ExpG Γ' P Δ t
 
 
-foldVar : ∀ {t m n o}{Γ : Cxt n}{Γ' : Cxt o}{Δ : Cxt m} → VarRule Γ Γ' (Exp' Γ') → 
+foldVar : ∀ {t m n o}{Γ : Cxt n}{Γ' : Cxt o}{Δ : Cxt m} → VarRule Γ Γ' Exp' → 
         Exp' Γ Δ t → Exp' Γ' Δ t
 foldVar f (In (val V1)) = In (val V1)
 foldVar f (In (val (a , b))) = In (val (foldVar f a , foldVar f b))
@@ -124,24 +124,29 @@ foldVar f (In (fst x)) = In (fst (foldVar f x))
 foldVar f (In (snd x)) = In (snd (foldVar f x))
 foldVar f (In (case x x₁ x₂)) = In (case (foldVar f x) (foldVar f x₁) (foldVar f x₂)) 
 
+foldVar' : ∀ {t m n o}{Γ : Cxt n}{Γ' : Cxt o}{Δ : Cxt m} → VarRule' Γ Γ' → 
+        Exp' Γ Δ t → Exp' Γ' Δ t
+foldVar' f = foldVar (VarRuleInj {P = Exp'} f)
+
 swapVar : ∀{n t t'}{Γ : Cxt n} → VarRule' (t ∷ t' ∷ Γ) (t' ∷ t ∷ Γ)
-swapVar [] zero here = (suc zero , there here)
-swapVar [] (suc zero) (there here) = (zero , here)
-swapVar [] (suc (suc v)) (there (there p)) = (suc (suc v) , there (there p))
-swapVar (t'' ∷ Δ) zero here = (zero , here)
-swapVar (x ∷ Δ) (suc v) (there p) with swapVar Δ v p
-swapVar (x ∷ Δ) (suc v) (there p) | v' , p' = suc v' , there p'
+swapVar [] (zero , here) = (suc zero , there here)
+swapVar [] ((suc zero) , (there here)) = (zero , here)
+swapVar [] ((suc (suc v)) , (there (there p))) = (suc (suc v) , there (there p))
+swapVar (t'' ∷ Δ) (zero , here) = (zero , here)
+swapVar (x ∷ Δ) ((suc v) , (there p)) with swapVar Δ (v , p) 
+swapVar (x ∷ Δ) ((suc v) , (there p)) | v' , p' = suc v' , there p'
 
---swapE : {m n : ℕ} {s : Alg} {Γ : Cxt n} {t t1 : Alg} →
---  ({m' : ℕ}{t : Alg} → (Δ' : Cxt m') → P Δ' t → P' Δ' t) →
---    (Δ : Cxt m)  →  MapVarE Δ s (t ∷ t1 ∷ Γ) (t1 ∷ t ∷ Γ)
---swapE h = mapVarE h (VarRuleInj swapVar)
+swapE : ∀{m n t t'}{Γ : Cxt n}{Δ : Cxt m} →  Exp' (t ∷ t' ∷ Γ) Δ t → Exp' (t' ∷ t ∷ Γ) Δ t
+swapE = foldVar' swapVar
 
---embVar : ∀ {u t n}{Γ : Cxt n} → Σ (Fin n)       (λ v → Γ       [ v ]= t) → 
---                                 Σ (Fin (suc n)) (λ v → (u ∷ Γ) [ v ]= t)
---embVar (v , p) = suc v , there p
---
---addVar : ∀{n t}{Γ : Cxt n} → VarRule' Γ (t ∷ Γ)
+embVar : ∀ {u t n}{Γ : Cxt n} → Var Γ t → Var (u ∷ Γ) t
+embVar (v , p) = suc v , there p
+
+addVar : ∀{n t}{Γ : Cxt n} → VarRule' Γ (t ∷ Γ)
+addVar [] (zero , here) = suc zero , there here
+addVar [] (suc x , there p) = embVar (addVar [] (x , p))
+addVar (t ∷ Γ) (zero , here) = zero , here
+addVar (t ∷ Γ) (suc x , there p) = embVar (addVar Γ (x , p))
 --addVar [] zero here = suc zero , there here
 --addVar [] (suc v) (there p) = embVar (addVar [] v p)
 --addVar (t' ∷ Δ) zero here = zero , here
