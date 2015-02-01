@@ -9,6 +9,8 @@ open import Data.Unit hiding (_≤_)
 open import Data.Product 
 open import Data.Vec hiding ([_])
 open import Data.Sum
+open import Data.Unit
+open import Relation.Nullary
 
 data ExpF {n : ℕ}{γ : Alg} (s : EnvF γ) (Γ : Cxt n) (t : Alg) : Set where
    InE : ExpG (ExpF s) Γ t → ExpF s Γ t
@@ -74,9 +76,16 @@ S :  ({n' : ℕ}{γ : Alg} → EnvF γ → Cxt n' → Alg → Set) →
          {n : ℕ} → Cxt n → Alg → Alg → Set
 S P Γ γ t = Σ (EnvF γ) (λ s → P s Γ t)
 
+const : ∀{a}{A B : Set a} → A → B → A
+const a b = a
+
 data _⇓*_ {t γ : Alg} : S ExpF [] γ t → S ValF [] γ t → Set where 
   ⇓weak : {s s' s'' : EnvF γ}{e : ExpF s [] t}{a : ValF s' [] t} → 
              (s , e) ⇓* (s' , a) → (o : s' <= s'') → (s , e) ⇓* (s'' , embValF o a)
+  ⇓var : {s : EnvF γ}{x : VarF s t}{a : ValG (VarF s) t} → s [ x ]:= a → 
+                        (s , InF x) ⇓* (s , (fmapV InF a))
+  ⇓Fvar : {s : EnvF γ}{x : VarF s t} → ¬ (∃ (_[_]:=_ s x)) → (a : ValG (λ _ → Unit) t) →
+                        (s , InF x) ⇓* (insert s x (fmapV (const free) a) , fmapP {!!} a) 
   ⇓val : {s : EnvF γ} {a : ValF s [] t} → (s , InE (val a)) ⇓* (s , a) 
 --  ⇓fst : {s : EnvF γ} → {!!} ⇓* {!!} 
 --  ⇓caseL : ∀{u v}{s s' s'' : EnvF γ  }{e : ExpF [] s (u ⊕ v)}
