@@ -27,18 +27,17 @@ data ValG (P : Alg → Set) : Alg → Set where
 --Val : {n : ℕ} → Cxt n → Alg → Set
 --Val Γ t = ValG (Exp Γ) t
 
-ExpT : {n : ℕ} → Cxt n → Set₁
-ExpT Γ = {m : ℕ} → Cxt m → Alg → Set
+ExpT : Set₁
+ExpT = {m : ℕ} → Cxt m → Alg → Set
 
-data ExpG {n : ℕ}(Γ : Cxt n)(P : ExpT Γ){m : ℕ}(Δ : Cxt m)(t : Alg) : Set                  
+data ExpG {n : ℕ}(Γ : Cxt n)(P : ExpT){m : ℕ}(Δ : Cxt m)(t : Alg) : Set                  
 
 Var : {n : ℕ} → (Cxt n) → {m : ℕ} → (Δ : Cxt m) → (t : Alg) → Set
 Var {n} Γ {m} Δ t =  Σ (Fin (m + n)) (λ x → (Δ ++ Γ) [ x ]= t)
 
 data ExpG {n} Γ P {m} Δ t where
   val : (a : ValG (P Δ) t) → ExpG Γ P Δ t 
-  var : Var Γ Δ t   -- (x : Fin (m + n)) (p : (Δ ++ Γ) [ x ]= t) 
-                 → ExpG Γ P Δ t
+  var : Var Γ Δ t → ExpG Γ P Δ t
   fst : {u : Alg} → P Δ (t ⊗ u) → ExpG Γ P Δ t 
   snd : {u : Alg} → P Δ (u ⊗ t) → ExpG Γ P Δ t
   case : {u v : Alg} → P Δ (u ⊕ v) → 
@@ -55,10 +54,10 @@ data Exp' {n : ℕ} (Γ : Cxt n) {m : ℕ} (Δ : Cxt m) (t : Alg) : Set where
 --  case : {u v : Alg} → Exp Γ (u ⊕ v) → 
 --                          Exp (u ∷ Γ) t → Exp (v ∷ Γ) t → Exp Γ t
 
-ExpFold : {n : ℕ}(Γ : Cxt n) → ExpT Γ → Set
+ExpFold : {n : ℕ}(Γ : Cxt n) → ExpT → Set
 ExpFold Γ A = {t : Alg}{m : ℕ}(Δ : Cxt m) → ExpG Γ A Δ t → A Δ t
 
-fmapExp : {n : ℕ}{Γ : Cxt n}{A B : ExpT Γ} → 
+fmapExp : {n : ℕ}{Γ : Cxt n}{A B : ExpT} → 
       ({m' : ℕ}{t : Alg} → (Δ' : Cxt m') → A Δ' t → B Δ' t) → 
        {m : ℕ} {t : Alg} → (Δ  : Cxt m ) → ExpG Γ A Δ t → ExpG Γ B Δ t
 fmapExp f Δ (val V1) = val V1
@@ -71,7 +70,7 @@ fmapExp f Δ (snd x) = snd (f Δ x)
 fmapExp f Δ (case {u = u}{v} x x₁ x₂) = case (f Δ x) (f (u ∷ Δ) x₁) (f (v ∷ Δ) x₂)
 
 ---- Nice version of foldExp doesn't work due to termination checker
-foldExp : {n : ℕ}{Γ : Cxt n}{A : ExpT Γ} → ExpFold Γ A → 
+foldExp : {n : ℕ}{Γ : Cxt n}{A : ExpT} → ExpFold Γ A → 
     {t : Alg}{m : ℕ} → (Δ : Cxt m) → Exp' Γ Δ t → A Δ t
 foldExp f Δ (In (val V1)) = f Δ (val V1)
 foldExp f Δ (In (val (a , b))) =  f Δ (val (foldExp f Δ a , foldExp f Δ b))
@@ -95,9 +94,9 @@ caseV (inR b) f g = g b
 
 ----SUBSTITUITION RULES
 
-VarRule : ∀{n o}(Γ : Cxt n)(Γ' : Cxt o)(P : ExpT Γ') → Set
+VarRule : ∀{n o}(Γ : Cxt n)(Γ' : Cxt o)(P : ExpT) → Set
 VarRule {n}{o} Γ Γ' P = ∀{t m} (Δ : Cxt m) → (Var Γ Δ t) → 
-            ExpG Γ' P Δ t  ⊎ Var Γ' Δ t
+            P Δ t  ⊎ Var Γ' Δ t
             --Σ (Fin (m + o)) (λ x' → Δ ++ Γ' [ x' ]= t) 
             
 VarRule' : ∀{n o}(Γ : Cxt n)(Γ' : Cxt o) → Set
@@ -107,26 +106,23 @@ VarRule' {n}{o} Γ Γ' = ∀{t' m'} (Δ' : Cxt m') (x : Fin (m' + n)) → Δ' ++
 --VarRuleInj : ∀{n o}{Γ : Cxt n}{Γ' : Cxt o}(P : ExpT Γ') → VarRule' Γ Γ' → VarRule Γ Γ' P
 --VarRuleInj P f Δ v p = inj₂ (f Δ v p)
             
-MapVarE : ∀{m n o} → Cxt m → (Γ : Cxt n) → (Γ' : Cxt o)  → 
-        (P : ExpT Γ) → (P' : ExpT Γ') →  Alg →  Set
-MapVarE Δ Γ Γ' P P' t = ExpG Γ P Δ t → ExpG Γ' P' Δ t
+MapVar : ∀{m n o} → Cxt m → (Γ : Cxt n) → (Γ' : Cxt o)  → 
+        (P : ExpT) →  Alg →  Set
+MapVar Δ Γ Γ' P t = ExpG Γ P Δ t → ExpG Γ' P Δ t
 
---MapVar : (A :  → VarRule P Γ Γ' → ExpFold ( )
---
---MapVarV : ∀{m n o} → Cxt n → Alg → Cxt o → Cxt m → Set
---MapVarV Δ t Γ Γ' = Val (Δ ++ Γ) t → Val (Δ ++ Γ') t
 
-mapVarE : ∀ {t m n o}{Γ : Cxt n}{Γ' : Cxt o}{P : ExpT Γ} → VarRule Γ Γ' (Exp' Γ') → (Δ : Cxt m) → ExpG Γ (Exp' Γ') Δ t → Exp' Γ' Δ t
-mapVarE  f Δ (val V1) = In (val V1)
-mapVarE  f Δ (val (a , b)) = In (val (a , b))
-mapVarE  f Δ (val (inL a)) = In (val (inL a))
-mapVarE  f Δ (val (inR b)) = In (val (inR b))
-mapVarE  f Δ (var x) with f Δ x  
-mapVarE  f Δ (var x) | inj₁ x₁ = In x₁
-mapVarE  f Δ (var x) | inj₂ x' = In (var x')
-mapVarE  f Δ (fst x) = In (fst x)
-mapVarE  f Δ (snd x) = In (snd x)
-mapVarE  f Δ (case {u = u}{v} x x₁ x₂) = In (case x x₁ x₂)
+foldVar : ∀ {t m n o}{Γ : Cxt n}{Γ' : Cxt o}{Δ : Cxt m} → VarRule Γ Γ' (Exp' Γ') → 
+        Exp' Γ Δ t → Exp' Γ' Δ t
+foldVar f (In (val V1)) = In (val V1)
+foldVar f (In (val (a , b))) = In (val (foldVar f a , foldVar f b))
+foldVar f (In (val (inL a))) = In (val (inL (foldVar f a)))
+foldVar f (In (val (inR b))) = In (val (inR (foldVar f b)))
+foldVar {Δ = Δ} f (In (var x)) with f Δ x 
+foldVar f (In (var x)) | inj₁ e = e 
+foldVar f (In (var x)) | inj₂ x' = In (var x')
+foldVar f (In (fst x)) = In (fst (foldVar f x))
+foldVar f (In (snd x)) = In (snd (foldVar f x))
+foldVar f (In (case x x₁ x₂)) = In (case (foldVar f x) (foldVar f x₁) (foldVar f x₂)) 
 
 swapVar : ∀{n t t'}{Γ : Cxt n} → VarRule' (t ∷ t' ∷ Γ) (t' ∷ t ∷ Γ)
 swapVar [] zero here = (suc zero , there here)
