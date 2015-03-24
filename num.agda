@@ -43,6 +43,7 @@ repI (suc n) a (x ∷ v) = x ∷ repI n a v
 data _[_]:=_ : (s : NatSub) → (NatVar s) → Maybe (Nat (NatVar s)) → Set where 
   hereZ : Z [ here ]:= just Z 
   hereS : {a : NatSub} → S a [ here ]:= just (S (there here)) 
+  hereHole : hole [ here ]:= nothing
   there : {s : NatSub}{p : NatVar s}{n : Maybe (Nat (NatVar s))} → 
           s [ p ]:=  n → S s [ there p ]:= M.map (mapNat there) n
   
@@ -140,4 +141,45 @@ data _≤s_ : {m : ℕ} → Subs m → Subs m → Set where
   ≤∷ : ∀{m s s'}{σ σ' : Subs m} → s ≤N s' → σ ≤s σ' → 
                                         (s ∷ σ) ≤s (s' ∷ σ')
                                         
+
+≤N-refl : ∀{s} → s ≤N s
+≤N-refl {hole} = ≤hole
+≤N-refl {Z} = ≤Z
+≤N-refl {S s} = ≤S ≤N-refl
+                                        
+≤N-trans : ∀{s s' s''} → s ≤N s' → s' ≤N s'' → s ≤N s''
+≤N-trans ≤hole o' = ≤hole
+≤N-trans ≤Z o' = o'
+≤N-trans (≤S o) (≤S o') = ≤S (≤N-trans o o')
+
+≤s-refl : ∀{m} {σ : Subs m} → σ ≤s σ
+≤s-refl {σ = []} = ≤[]
+≤s-refl {σ = x ∷ σ} = ≤∷ ≤N-refl ≤s-refl
+
+≤s-trans : ∀{m} {σ σ' σ'' : Subs m} → σ ≤s σ' → σ' ≤s σ'' → σ ≤s σ''
+≤s-trans ≤[] ≤[] = ≤[]
+≤s-trans (≤∷ x o) (≤∷ x' o') = ≤∷ (≤N-trans x x') (≤s-trans o o')
+                                        
+⇝R-mono : ∀{m}{σ σ' : Subs m}{e : Exp 0 σ}{e' : Exp 0 σ'} →   (σ , e) ⇝R (σ' , e') → σ ≤s σ'
+⇝R-mono (lift x) = ≤s-refl
+⇝R-mono (var x) = ≤s-refl
+⇝R-mono (bind0 x₁) = {!!}
+⇝R-mono (bindS x₁) = {!!}
+                                        
+
+embVar : {s s' : NatSub} → s ≤N s' → NatVar s → NatVar s'
+embVar o here = here
+embVar (≤S o) (there p) = there (embVar o p)
+
+getOrd : ∀{m}{σ σ' : Subs m} → σ ≤s σ' → (x : Fin m) → lookup x σ ≤N lookup x σ'
+getOrd (≤∷ x o) zero = x
+getOrd (≤∷ _ o) (suc x) = getOrd o x
+
+embExp : ∀{v m}{σ σ' : Subs m} → σ ≤s σ' → Exp v σ → Exp v σ'
+embExp o (nat Z) = nat Z
+embExp o (nat (S x)) = nat (S (embExp o x))
+embExp o (var x) = var x
+embExp o (mvar x p) = mvar x (embVar (getOrd o x) p)
+embExp o (case e alt₀ e₁ altₛ e₂) = case embExp o e alt₀ embExp o e₁ altₛ embExp o e₂
+
 
