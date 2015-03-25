@@ -1,0 +1,61 @@
+module VecI where
+
+open import Data.Vec
+open import Data.Nat hiding (_⊔_)
+open import Data.Fin
+open import Function
+open import Data.Product
+open import Agda.Primitive
+open import Relation.Binary.PropositionalEquality
+
+data VecI {γ γ'} {A : Set γ} (P : A → Set γ') :  {n : ℕ} → Vec A n → Set (γ ⊔ γ') where
+   [] : VecI P []
+   _∷_ : ∀{n}{a : A}{As : Vec A n} → P a → VecI P As → VecI P (a ∷ As)
+   
+data VecI₂ {γ γ'} {A B : Set γ} (P : A → B → Set γ') :  
+           {n : ℕ} → Vec A n → Vec B n → Set (γ ⊔ γ') where
+   [] : VecI₂ P [] []
+   _∷_ : ∀{n}{a : A}{b : B}{as : Vec A n}{bs : Vec B n} → P a b → VecI₂ P as bs → VecI₂ P (a ∷ as) (b ∷ bs)
+   
+update : ∀{n}{A : Set} → Fin n → (A → A) →  Vec A n → Vec A n
+update zero f (a ∷ as) = f a ∷ as
+update (suc i) f (a ∷ as) = a ∷ update i f as
+
+insert : ∀{n}{A : Set} → (x : Fin n) → A →  Vec A n → Vec A n
+insert i a as = update i (const a) as
+
+upd-look : ∀{n}{A : Set} → (x : Fin n) → (f : A → A) → (σ : Vec A n) → f (lookup x σ) ≡ lookup x (update x f σ)
+upd-look zero f (s ∷ σ) = refl
+upd-look (suc x) f (s ∷ σ) = upd-look x f σ 
+
+ins-look : ∀{n}{A : Set}(x : Fin n) → (a : A) → (σ : Vec A n) → a ≡ lookup x (insert x a σ)
+ins-look x a σ = upd-look x (const a) σ 
+
+zipI : ∀{n}{A : Set}{P : A → Set} → (as : Vec A n) → VecI P as → Vec (Σ A P) n
+zipI [] [] = []
+zipI (a ∷ as) (p ∷ ps) = (a , p) ∷ zipI as ps
+
+--lookupI : ∀{n γ}{As : Vec (Set γ) n} → (i : Fin n) → VecI As → lookup i As
+--lookupI zero (x ∷ as) = x
+--lookupI (suc i) (x ∷ as) = lookupI i as
+-- 
+--updateI : ∀{n γ}{A : Set γ}{As : Vec (Set γ) n} → (i : Fin n) → 
+--          (f : lookup i As → A) → VecI As → VecI (insert i A As)
+--updateI zero f (x ∷ as) = f x ∷ as
+--updateI (suc i) f (x ∷ as) = x ∷ updateI i f as
+--
+--insertI : ∀{n γ}{A : Set γ}{As : Vec (Set γ) n} → (i : Fin n) → 
+--          A → VecI As → VecI (insert i A As)
+--insertI i a = updateI i (const a) 
+--
+----upd-lookI : ∀{n γ}{A : Set γ}{As : Vec (Set γ) n} → 
+----          (i : Fin n) → (f : lookup i As → A) → (as : VecI As) → 
+----            f (lookupI i as) ≡ lookupI i (updateI i f as)
+----upd-lookI zero f (s ∷ σ) = refl
+----upd-lookI (suc x) f (s ∷ σ) = upd-look x f σ 
+--
+----ins-look x a σ = upd-look x (const a) σ 
+--
+--Vec1 : ∀{γ}{A : Set}(P : A → Set γ) → Set (lsuc γ)
+--Vec1 P = {!As : Vec (P!}
+ 
