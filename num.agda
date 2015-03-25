@@ -1,11 +1,13 @@
 module num where
 
-open import Data.Product
+open import Data.Product hiding (zip)
 open import Data.Vec
 open import Data.Maybe as M
 open import Data.Fin hiding (_+_ ) hiding (lift)
 open import Data.Nat 
 open import Function
+open import Data.Unit
+open import Agda.Primitive
 open import Relation.Binary.PropositionalEquality
 
 
@@ -36,16 +38,22 @@ updS s here = S hole , there here
 updS (S n) (there p) with updS n p
 updS (S n) (there p) | s' , p' = S s' , there p'
 
-repI : ∀{n}{A : Set} → (x : Fin n) → A →  Vec A n → Vec A n
-repI zero a (x ∷ v) = a ∷ v
-repI (suc n) a (x ∷ v) = x ∷ repI n a v
+update : ∀{n}{A : Set} → (x : Fin n) → (A → A) →  Vec A n → Vec A n
+update zero f (x ∷ xs) = f x ∷ xs
+update (suc n) f (x ∷ xs) = x ∷ update n f xs
+
+insert : ∀{n}{A : Set} → (x : Fin n) → A →  Vec A n → Vec A n
+insert x a xs = update x (const a) xs
   
 data _[_]:=_ : (s : NatSub) → (NatVar s) → Maybe (Nat (NatVar s)) → Set where 
   hereZ : Z [ here ]:= just Z 
   hereS : {a : NatSub} → S a [ here ]:= just (S (there here)) 
-  hereHole : hole [ here ]:= nothing
-  there : {s : NatSub}{p : NatVar s}{n : Maybe (Nat (NatVar s))} → 
-          s [ p ]:=  n → S s [ there p ]:= M.map (mapNat there) n
+  hereH : hole [ here ]:= nothing
+  thereZ : {s : NatSub}{p : NatVar s} → s [ p ]:=  just Z → S s [ there p ]:= just Z 
+  thereS : {s : NatSub}{p p' : NatVar s} → s [ p ]:=  just (S p' ) → 
+                S s [ there p ]:= just (S (there p')) 
+  thereH : {s : NatSub}{p : NatVar s} → s [ p ]:= nothing → S s [ there p ]:= nothing
+
   
 Subs : ℕ → Set
 Subs = Vec NatSub 
@@ -106,18 +114,19 @@ data _↦*_ {m : ℕ}{M : Subs m} : Exp 0 M → Exp 0 M → Set where
 Env : ℕ → Set
 Env m = Σ (Subs m) (Exp 0)
 
-emb : ∀{m} → (σ : Subs m) → (x : Fin m) → 
-       (p : NatVar (lookup x σ)) → Σ (Subs m) (NatVar ∘ (lookup x))  
-emb (s ∷ σ) zero p with updS s p
-emb (s ∷ σ) zero p | s' , p' = s' ∷ σ , p'
-emb (s ∷ σ) (suc x) p with emb σ x p
-emb (s ∷ σ) (suc x) p | σ' , p' = s ∷ σ' , p'
+update-prop : ∀{n}{A : Set}(P : A → Set) → (x : Fin n) → (f : A → A) → (σ : Vec A n) → P (f (lookup x σ)) → P (lookup x (update x f σ))
+update-prop P zero f (x ∷ xs) Pa = Pa
+update-prop P (suc i) f (x ∷ xs) Pa = update-prop P i f xs Pa
+
+insert-prop : ∀{n}{A : Set}(P : A → Set) → (x : Fin n) → (a : A) → (σ : Vec A n) → P a → P (lookup x (insert x a σ))
+insert-prop P i a xs Pa = update-prop P i (const a) xs Pa
 
 updEnv : ∀{m} → (σ : Subs m) → (x : Fin m) → 
        (p : NatVar (lookup x σ)) → Env m
-updEnv σ x p with emb σ x p
-updEnv σ x p | σ' , p' = σ' , (nat (S (mvar x p')))
-  
+updEnv σ x p with lookup x σ
+updEnv σ x p | s with updS s p
+updEnv σ x p | s | s' , p' = (insert x s' σ) , mvar x (insert-prop NatVar x s' σ p')
+
 data _⇝R_ {m : ℕ} : Env m → Env m → Set where
   lift : {σ : Subs m}{e e' : Exp 0 σ} → e ↦R e' → (σ , e) ⇝R (σ , e')
   var : {σ : Subs m}{x : Fin m}{s : NatSub} → let s = lookup x σ in 
@@ -126,7 +135,7 @@ data _⇝R_ {m : ℕ} : Env m → Env m → Set where
              (σ , mvar x p) ⇝R (σ , nat (mapNat (mvar x) a))
   bind0 : {σ : Subs m}{x : Fin m}{s : NatSub} → let s = lookup x σ in 
            {p : NatVar s} → s [ p ]:= nothing → 
-          (σ , mvar x p) ⇝R (repI x (updZ s p) σ , nat Z) 
+          (σ , mvar x p) ⇝R (insert x (updZ s p) σ , nat Z) 
   bindS : {σ : Subs m}{x : Fin m}{s : NatSub} → let s = lookup x σ in 
     {p : NatVar s} → s [ p ]:= nothing → 
     (σ , mvar x p) ⇝R updEnv σ x p
@@ -136,11 +145,21 @@ data _≤N_ : NatSub → NatSub → Set where
   ≤Z : Z ≤N Z 
   ≤S : {s s' : NatSub} → s ≤N s' → S s ≤N S s'
   
-data _≤s_ : {m : ℕ} → Subs m → Subs m → Set where
-  ≤[] : _≤s_ [] []
-  ≤∷ : ∀{m s s'}{σ σ' : Subs m} → s ≤N s' → σ ≤s σ' → 
-                                        (s ∷ σ) ≤s (s' ∷ σ')
+--data _≤s_ : {m : ℕ} → Subs m → Subs m → Set where
+--  ≤[] : _≤s_ [] []
+--  ≤∷ : ∀{m s s'}{σ σ' : Subs m} → s ≤N s' → σ ≤s σ' → 
+--                                        (s ∷ σ) ≤s (s' ∷ σ')
+
+data VecP {a} :  {n : ℕ} → Vec (Set a) n → Set (lsuc a) where
+   [] : VecP []
+   _∷_ : {n : ℕ}{A : Set a}{As : Vec (Set a) n} → A → VecP As → VecP (A ∷ As)
+   
+ProdL : ∀{n} → Vec Set n → Set
+ProdL [] = Unit
+ProdL (A ∷ As) = A × ProdL As
                                         
+_≤s_ : {m : ℕ} → Subs m → Subs m → Set₁
+v1 ≤s v2 = VecP (zipWith _≤N_ v1 v2)
 
 ≤N-refl : ∀{s} → s ≤N s
 ≤N-refl {hole} = ≤hole
@@ -153,33 +172,41 @@ data _≤s_ : {m : ℕ} → Subs m → Subs m → Set where
 ≤N-trans (≤S o) (≤S o') = ≤S (≤N-trans o o')
 
 ≤s-refl : ∀{m} {σ : Subs m} → σ ≤s σ
-≤s-refl {σ = []} = ≤[]
-≤s-refl {σ = x ∷ σ} = ≤∷ ≤N-refl ≤s-refl
+≤s-refl {σ = []} = []
+≤s-refl {σ = x ∷ σ} = ≤N-refl ∷ ≤s-refl
 
-≤s-trans : ∀{m} {σ σ' σ'' : Subs m} → σ ≤s σ' → σ' ≤s σ'' → σ ≤s σ''
-≤s-trans ≤[] ≤[] = ≤[]
-≤s-trans (≤∷ x o) (≤∷ x' o') = ≤∷ (≤N-trans x x') (≤s-trans o o')
-                                        
-⇝R-mono : ∀{m}{σ σ' : Subs m}{e : Exp 0 σ}{e' : Exp 0 σ'} →   (σ , e) ⇝R (σ' , e') → σ ≤s σ'
-⇝R-mono (lift x) = ≤s-refl
-⇝R-mono (var x) = ≤s-refl
-⇝R-mono (bind0 x₁) = {!!}
-⇝R-mono (bindS x₁) = {!!}
-                                        
-
-embVar : {s s' : NatSub} → s ≤N s' → NatVar s → NatVar s'
-embVar o here = here
-embVar (≤S o) (there p) = there (embVar o p)
-
-getOrd : ∀{m}{σ σ' : Subs m} → σ ≤s σ' → (x : Fin m) → lookup x σ ≤N lookup x σ'
-getOrd (≤∷ x o) zero = x
-getOrd (≤∷ _ o) (suc x) = getOrd o x
-
-embExp : ∀{v m}{σ σ' : Subs m} → σ ≤s σ' → Exp v σ → Exp v σ'
-embExp o (nat Z) = nat Z
-embExp o (nat (S x)) = nat (S (embExp o x))
-embExp o (var x) = var x
-embExp o (mvar x p) = mvar x (embVar (getOrd o x) p)
-embExp o (case e alt₀ e₁ altₛ e₂) = case embExp o e alt₀ embExp o e₁ altₛ embExp o e₂
+--≤s-trans : ∀{m} {σ σ' σ'' : Subs m} → σ ≤s σ' → σ' ≤s σ'' → σ ≤s σ''
+--≤s-trans ≤[] ≤[] = ≤[]
+--≤s-trans (≤∷ x o) (≤∷ x' o') = ≤∷ (≤N-trans x x') (≤s-trans o o')
+--
+--insert-point : ∀{m s}{σ : Subs m}{x : Fin m} → lookup x σ ≤N s  → σ ≤s insert x s σ
+--insert-point {σ = s ∷ σ} {x = zero} a = ≤∷ a ≤s-refl
+--insert-point {σ = s ∷ σ} {x = suc x} a  = ≤∷ ≤N-refl (insert-point {σ = σ} {x = x} a)
+--
+--updZ-mono : ∀{s}{p : NatVar s} → s [ p ]:= nothing → s ≤N updZ s p
+--updZ-mono hereH = ≤hole
+--updZ-mono (thereH P) = ≤S (updZ-mono P)
+--                                        
+--⇝R-mono : ∀{m}{σ σ' : Subs m}{e : Exp 0 σ}{e' : Exp 0 σ'} →   (σ , e) ⇝R (σ' , e') → σ ≤s σ'
+--⇝R-mono (lift x) = ≤s-refl
+--⇝R-mono (var x) = ≤s-refl
+--⇝R-mono {σ = σ} (bind0 {x = x}{p = p} i) = insert-point {x = x} (updZ-mono i)
+--⇝R-mono (bindS x) = {!!}
+--                                        
+--
+--embVar : {s s' : NatSub} → s ≤N s' → NatVar s → NatVar s'
+--embVar o here = here
+--embVar (≤S o) (there p) = there (embVar o p)
+--
+--getOrd : ∀{m}{σ σ' : Subs m} → σ ≤s σ' → (x : Fin m) → lookup x σ ≤N lookup x σ'
+--getOrd (≤∷ x o) zero = x
+--getOrd (≤∷ _ o) (suc x) = getOrd o x
+--
+--embExp : ∀{v m}{σ σ' : Subs m} → σ ≤s σ' → Exp v σ → Exp v σ'
+--embExp o (nat Z) = nat Z
+--embExp o (nat (S x)) = nat (S (embExp o x))
+--embExp o (var x) = var x
+--embExp o (mvar x p) = mvar x (embVar (getOrd o x) p)
+--embExp o (case e alt₀ e₁ altₛ e₂) = case embExp o e alt₀ embExp o e₁ altₛ embExp o e₂
 
 
