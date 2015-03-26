@@ -50,14 +50,14 @@ data _∈ₛ_ : NatVar → NatSub → Set where
   here : ∀{s} → here ∈ₛ s
   there : ∀{p s} → p ∈ₛ s → there p ∈ₛ S s
   
-updZ : (s : NatSub) → NatVar → NatSub
-updZ s here = Z 
-updZ (S n) (there p) = S (updZ n p)
+updZ : NatVar → NatSub → NatSub
+updZ here s = Z 
+updZ (there p) (S n) = S (updZ p n)
 updZ  _ _ = Z
 
-updS : (s : NatSub) → NatVar → NatSub 
-updS s here = S hole 
-updS (S n) (there p) = S (updS n p)
+updS :  NatVar → NatSub → NatSub 
+updS here s = S hole 
+updS (there p) (S n) = S (updS p n)
 updS _  _ = Z 
 
 data _[_]:=_ : (s : NatSub) → NatVar → Maybe (Nat Unit) → Set where 
@@ -179,10 +179,10 @@ data _⇝R_ {m : ℕ} : Env m → Env m → Set where
              (σ , mvar x p) ⇝R (σ , S (mvar x (there p)))
   bind0 : {σ : Subs m}{x : Fin m} → let s = lookup x σ in 
            {p : NatVar} → s [ p ]:= nothing → 
-          (σ , mvar x p) ⇝R (insert x (updZ s p) σ , Z) 
+          (σ , mvar x p) ⇝R (update x (updZ p) σ , Z) 
   bindS : {σ : Subs m}{x : Fin m} → let s = lookup x σ in 
     {p : NatVar} → s [ p ]:= nothing → 
-    (σ , mvar x p) ⇝R (insert x (updS s p) σ , S (mvar x (there p)))
+    (σ , mvar x p) ⇝R (update x (updS p) σ , S (mvar x (there p)))
 
 data _≤N_ : NatSub → NatSub → Set where
   ≤hole : {s : NatSub} → hole ≤N s 
@@ -215,15 +215,16 @@ _≤s_ = VecI₂ _≤N_
 ≤s-trans [] [] = []
 ≤s-trans (s ∷ o) (s' ∷ o') = ≤N-trans s s' ∷ ≤s-trans o o' 
 
-insert-point : ∀{m s}{σ : Subs m}(x : Fin m) → lookup x σ ≤N s  → σ ≤s insert x s σ
-insert-point {σ = s ∷ σ} zero a = a ∷ ≤s-refl
-insert-point {σ = s ∷ σ} (suc x) a  = ≤N-refl ∷ insert-point x a
+upd-point : ∀{m}{σ : Subs m}{f : NatSub → NatSub} (x : Fin m) → (lookup x σ ≤N f (lookup x σ)) → 
+                   σ ≤s update x f σ
+upd-point {σ = x ∷ σ} zero o = o ∷ ≤s-refl
+upd-point {σ = s ∷ σ} (suc x) o = ≤N-refl ∷ upd-point x o 
 
-updZ-mono : ∀{s}{p : NatVar} → s [ p ]:= nothing → s ≤N updZ s p
+updZ-mono : ∀{s}{p : NatVar} → s [ p ]:= nothing → s ≤N updZ p s
 updZ-mono hereH = ≤hole
 updZ-mono (thereH P) = ≤S (updZ-mono P)
 
-updS-mono : ∀{s}{p : NatVar} → s [ p ]:= nothing → s ≤N updS s p
+updS-mono : ∀{s}{p : NatVar} → s [ p ]:= nothing → s ≤N updS p s
 updS-mono hereH = ≤hole
 updS-mono (thereH P) = ≤S (updS-mono P)
 
@@ -233,27 +234,47 @@ updS-mono (thereH P) = ≤S (updS-mono P)
 ⇝R-mono (lift x) = ≤s-refl
 ⇝R-mono (varZ x) = ≤s-refl
 ⇝R-mono (varS x) = ≤s-refl
-⇝R-mono (bind0 {x = x} i) = insert-point x (updZ-mono i)
-⇝R-mono (bindS {x = x} i) = insert-point x (updS-mono i)
+⇝R-mono (bind0 {x = x} i) = upd-point x (updZ-mono i) 
+⇝R-mono (bindS {x = x} i) = upd-point x (updS-mono i) 
+
+suc-var : {p : NatVar}{s : NatSub} →  s [ p ]:= just (S unit) → p ∈ₛ s → there p ∈ₛ s
+suc-var hereS here = there here
+suc-var (thereS s₁) (there i) = there (suc-var s₁ i)
+
+updS-var : {p : NatVar}{s : NatSub} →  s [ p ]:= nothing → p ∈ₛ s → there p ∈ₛ updS p s
+updS-var hereH here = there here
+updS-var (thereH o) (there i) = there (updS-var o i)
+
+emb-var :  {p : NatVar}{s s' : NatSub} → s ≤N s' → p ∈ₛ s → p ∈ₛ s'
+emb-var ≤hole here = here
+emb-var ≤Z here = here
+emb-var (≤S s₁) here = here
+emb-var (≤S s₁) (there i) = there (emb-var s₁ i)
 
 ⇝R-in : ∀{m}{σ σ' : Subs m}{e e' : ExpM 0 m} → (σ , e) ⇝R (σ' , e') → e ∈E σ → e' ∈E σ'
 ⇝R-in (lift x) e₁ = ↦R-in x e₁
 ⇝R-in (varZ x₁) e = Z
-⇝R-in (varS x₁) (mvar x₂) = {!!}
+⇝R-in (varS x₁) (mvar x₂) = S (mvar (suc-var x₁ x₂))
 ⇝R-in (bind0 x₁) (mvar x₂) = Z
-⇝R-in (bindS x₁) (mvar x₂) = {!!}
+⇝R-in {σ = σ} (bindS x₁) (mvar {x = x} {p} x₂) = 
+         S (mvar (subst (_∈ₛ_ (there p)) (upd-look x (updS p) σ) (updS-var x₁ x₂)))
 
 getOrd : ∀{m}{σ σ' : Subs m} → σ ≤s σ' → (x : Fin m) → lookup x σ ≤N lookup x σ'
 getOrd (x ∷ o) zero = x
 getOrd (_ ∷ o) (suc x) = getOrd o x
 
---embExp : ∀{v m}{σ σ' : Subs m} → σ ≤s σ' → ExpM v σ → ExpM v σ'
---embExp o (nat Z) = nat Z
---embExp o (nat (S x)) = nat (S (embExp o x))
---embExp o (var x) = var x
---embExp o (mvar x p) = mvar x (embVar (getOrd o x) p)
---embExp o (case e alt₀ e₁ altₛ e₂) = case embExp o e alt₀ embExp o e₁ altₛ embExp o e₂
---
+emb-s : ∀{M}{p : NatVar}{σ σ' : Subs M} → σ ≤s σ' → (x : Fin M) → p ∈ₛ lookup x σ → p ∈ₛ lookup x σ' 
+emb-s (x ∷ o) zero i = emb-var x i
+emb-s (x ∷ o) (suc x₁) i = emb-s o x₁ i
+
+
+emb-exp : ∀{v m}{σ σ' : Subs m}{e : ExpM v m} → σ ≤s σ' → e ∈E σ → e ∈E σ'
+emb-exp o Z = Z
+emb-exp o (S e₁) = S (emb-exp o e₁)
+emb-exp o var = var
+emb-exp o (mvar {x = x} x₁) = mvar (emb-s o x x₁)
+emb-exp o (case e₁ alt₀ e₂ altₛ e₃) = case emb-exp o e₁ alt₀ emb-exp o e₂ altₛ emb-exp o e₃
+
 --embCxt : ∀{m V}{M N : Subs m} → Cxt V M → M ≤s N → ExpM V N → ExpM V N
 --embCxt hole o e = e
 --embCxt (case H alt₀ e' altₛ e'') o e = case (embCxt H o e) alt₀ (embExp o e') altₛ embExp o e''
@@ -265,7 +286,7 @@ getOrd (_ ∷ o) (suc x) = getOrd o x
 --repl (a ∷ τ) (x ∷ is) (mvar zero p) = natToExp (a , x) p
 --repl (a ∷ τ) (x ∷ is) (mvar (suc x₁) p) = repl τ is (mvar x₁ p)
 --repl τ is (case e alt₀ e₁ altₛ e₂) = case repl τ is e alt₀ repl τ is e₁ altₛ repl τ is e₂
---
+
 _⟪_,_,_⟫ : ∀{V M} → (e : ExpM V M) → (τ : Subs M) → (VecI Nohole τ) → e ∈E τ  → Exp V
 Z ⟪ ns , is , Z ⟫ = Z
 S e ⟪ ns , is , S o ⟫ = S (e ⟪ ns , is , o ⟫)
@@ -283,6 +304,11 @@ data _⇝_ {m : ℕ} : Env m → Env m → Set where
 ⇝-mono : ∀{m}{σ σ' : Subs m}{e e' : ExpM 0 m} → (σ , e) ⇝ (σ' , e') → σ ≤s σ'
 ⇝-mono (prom r H) = ⇝R-mono r
 
+⇝-in : ∀{m}{σ σ' : Subs m}{e e' : ExpM 0 m} → (σ , e) ⇝ (σ' , e') → e ∈E σ → e' ∈E σ'
+⇝-in (prom r hole) o = ⇝R-in r o
+⇝-in (prom r (case H alt₀ e'' altₛ e''')) (case o alt₀ o₁ altₛ o₂) = 
+           case ⇝-in (prom r H) o alt₀ emb-exp (⇝R-mono r) o₁ altₛ emb-exp (⇝R-mono r) o₂
+
 data _⇝*_ {m : ℕ} : Env m → Env m → Set where
   [] : {s : Env m} → s ⇝* s
   _∷_ : {s s' s'' : Env m} → (r : s ⇝ s') → (rs : s' ⇝* s'') → s ⇝* s''
@@ -291,6 +317,10 @@ data _⇝*_ {m : ℕ} : Env m → Env m → Set where
 ⇝*-mono [] = ≤s-refl
 ⇝*-mono (r ∷ rs) = ≤s-trans (⇝-mono r) (⇝*-mono rs)
   
+⇝*-in : ∀{m}{σ σ' : Subs m}{e e' : ExpM 0 m} → (σ , e) ⇝* (σ' , e') → e ∈E σ → e' ∈E σ'
+⇝*-in [] o = o
+⇝*-in (r ∷ r₁) o = ⇝*-in r₁ (⇝-in r o)
+
 data _⇝!_ {m : ℕ} : Env m → Env m → Set where
   fill : {σ τ : Subs m}{e : ExpM 0 m}{s : Env m} → VecI Nohole τ → (o : σ ≤s τ) →
        (r : s ⇝* (σ , e)) →  s ⇝! (τ ,  e)
@@ -300,6 +330,10 @@ inp! {s = proj₁ , proj₂} (fill x o x₁) = x
 
 ⇝!-mono : ∀{m}{σ τ : Subs m}{e e' : ExpM 0 m} → (σ , e) ⇝! (τ , e') → σ ≤s τ
 ⇝!-mono (fill x o r) = ≤s-trans (⇝*-mono r) o 
+
+⇝!-in : ∀{m}{σ τ : Subs m}{e e' : ExpM 0 m} → (σ , e) ⇝! (τ , e') → e ∈E σ → e' ∈E τ
+⇝!-in (fill x o r) i = emb-exp o (⇝*-in r i)
+
 
 --emb-emp : ∀{V}{e : Exp V} → embExp [] e ≡ e
 --emb-emp {e = nat Z} = refl
