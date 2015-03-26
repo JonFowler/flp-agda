@@ -55,11 +55,10 @@ updZ s here = Z
 updZ (S n) (there p) = S (updZ n p)
 updZ  _ _ = Z
 
-updS : (s : NatSub) → NatVar → NatSub  × NatVar
-updS s here = S hole , there here
-updS (S n) (there p) with updS n p
-updS (S n) (there p) | s' , p' = S s' , there p'
-updS _  _ = Z , here
+updS : (s : NatSub) → NatVar → NatSub 
+updS s here = S hole 
+updS (S n) (there p) = S (updS n p)
+updS _  _ = Z 
 
 data _[_]:=_ : (s : NatSub) → NatVar → Maybe (Nat Unit) → Set where 
   hereZ : Z [ here ]:= just Z 
@@ -168,12 +167,6 @@ data _↦*_ {M : ℕ} : ExpM 0 M → ExpM 0 M → Set where
 Env : ℕ → Set
 Env m = Subs m × ExpM 0 m
 
-updEnv : ∀{m} → (σ : Subs m) → (x : Fin m) → 
-       (p : NatVar) → Env m
-updEnv σ x p with lookup x σ
-updEnv σ x p | s with updS s p
-updEnv σ x p | s | s' , p' = (insert x s' σ) , mvar x p'
-
 data _⇝R_ {m : ℕ} : Env m → Env m → Set where
   lift : {σ : Subs m}{e e' : ExpM 0 m} → e ↦R e' → (σ , e) ⇝R (σ , e')
   varZ : {σ : Subs m}{x : Fin m}{s : NatSub} → let s = lookup x σ in 
@@ -184,12 +177,12 @@ data _⇝R_ {m : ℕ} : Env m → Env m → Set where
              {p : NatVar} → 
              s [ p ]:= just (S unit) → 
              (σ , mvar x p) ⇝R (σ , S (mvar x (there p)))
-  bind0 : {σ : Subs m}{x : Fin m}{s : NatSub} → let s = lookup x σ in 
+  bind0 : {σ : Subs m}{x : Fin m} → let s = lookup x σ in 
            {p : NatVar} → s [ p ]:= nothing → 
           (σ , mvar x p) ⇝R (insert x (updZ s p) σ , Z) 
-  bindS : {σ : Subs m}{x : Fin m}{s : NatSub} → let s = lookup x σ in 
+  bindS : {σ : Subs m}{x : Fin m} → let s = lookup x σ in 
     {p : NatVar} → s [ p ]:= nothing → 
-    (σ , mvar x p) ⇝R updEnv σ x p
+    (σ , mvar x p) ⇝R (insert x (updS s p) σ , S (mvar x (there p)))
 
 data _≤N_ : NatSub → NatSub → Set where
   ≤hole : {s : NatSub} → hole ≤N s 
@@ -230,9 +223,11 @@ updZ-mono : ∀{s}{p : NatVar} → s [ p ]:= nothing → s ≤N updZ s p
 updZ-mono hereH = ≤hole
 updZ-mono (thereH P) = ≤S (updZ-mono P)
 
-updS-mono : ∀{s}{p : NatVar} → s [ p ]:= nothing → s ≤N proj₁ (updS s p)
+updS-mono : ∀{s}{p : NatVar} → s [ p ]:= nothing → s ≤N updS s p
 updS-mono hereH = ≤hole
 updS-mono (thereH P) = ≤S (updS-mono P)
+
+--embVar : ∀{V M}{σ σ' : Subs m}
                                         
 ⇝R-mono : ∀{m}{σ σ' : Subs m}{e e' : ExpM 0 m} →   (σ , e) ⇝R (σ' , e') → σ ≤s σ'
 ⇝R-mono (lift x) = ≤s-refl
@@ -245,7 +240,7 @@ updS-mono (thereH P) = ≤S (updS-mono P)
 ⇝R-in (lift x) e₁ = ↦R-in x e₁
 ⇝R-in (varZ x₁) e = Z
 ⇝R-in (varS x₁) (mvar x₂) = {!!}
-⇝R-in (bind0 x₁) (mvar x₂) = {!!}
+⇝R-in (bind0 x₁) (mvar x₂) = Z
 ⇝R-in (bindS x₁) (mvar x₂) = {!!}
 
 getOrd : ∀{m}{σ σ' : Subs m} → σ ≤s σ' → (x : Fin m) → lookup x σ ≤N lookup x σ'
