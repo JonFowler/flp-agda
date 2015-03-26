@@ -218,13 +218,22 @@ embCxt : ∀{m V}{M N : Subs m} → Cxt V M → M ≤s N → ExpM V N → ExpM V
 embCxt hole o e = e
 embCxt (case H alt₀ e' altₛ e'') o e = case (embCxt H o e) alt₀ (embExp o e') altₛ embExp o e''
 
+repl : ∀{V m}(τ : Subs m) → (VecI Nohole τ) → ExpM V τ →  Exp V
+repl τ is (nat Z) = nat Z
+repl τ is (nat (S e)) = nat (S (repl τ is e))
+repl τ is (var x) = var x
+repl (a ∷ τ) (x ∷ is) (mvar zero p) = natToExp (a , x) p
+repl (a ∷ τ) (x ∷ is) (mvar (suc x₁) p) = repl τ is (mvar x₁ p)
+repl τ is (case e alt₀ e₁ altₛ e₂) = case repl τ is e alt₀ repl τ is e₁ altₛ repl τ is e₂
+
 _⟪_,_,_⟫ : ∀{V m}{σ : Subs m} → ExpM V σ → (τ : Subs m) → (VecI Nohole τ) → σ ≤s τ  → Exp V
-nat Z ⟪ ns , is , o ⟫ = nat Z
-nat (S e) ⟪ ns , is , o ⟫ = nat (S (e ⟪ ns , is , o ⟫))
-var x ⟪ ns , is , o ⟫ = var x
-mvar zero p ⟪ n ∷ ns , i ∷ is , o ∷ _ ⟫ = natToExp (n , i) (embVar o p)
-mvar (suc x) p ⟪ n ∷ ns , i ∷ is , _ ∷ o ⟫ = mvar x p ⟪ ns , is , o ⟫ 
-(case e alt₀ e₁ altₛ e₂) ⟪ ns , is , o ⟫ = case e ⟪ ns , is , o ⟫ alt₀ e₁ ⟪ ns , is , o ⟫ altₛ e₂ ⟪ ns , is , o ⟫
+e ⟪ ns , is , o ⟫ = repl  ns is (embExp o e)
+--nat Z ⟪ ns , is , o ⟫ = nat Z
+--nat (S e) ⟪ ns , is , o ⟫ = nat (S (e ⟪ ns , is , o ⟫))
+--var x ⟪ ns , is , o ⟫ = var x
+--mvar zero p ⟪ n ∷ ns , i ∷ is , o ∷ _ ⟫ = natToExp (n , i) (embVar o p)
+--mvar (suc x) p ⟪ n ∷ ns , i ∷ is , _ ∷ o ⟫ = mvar x p ⟪ ns , is , o ⟫ 
+--(case e alt₀ e₁ altₛ e₂) ⟪ ns , is , o ⟫ = case e ⟪ ns , is , o ⟫ alt₀ e₁ ⟪ ns , is , o ⟫ altₛ e₂ ⟪ ns , is , o ⟫
  
 
 data _⇝_ {m : ℕ} : Env m → Env m → Set where
@@ -276,5 +285,5 @@ emb-equiv o (case e alt₀ e₁ altₛ e₂) = {!!}
 ⇝-sound : ∀{m}{σ τ : Subs m}{e : ExpM 0 σ}{e' : ExpM 0 τ} → 
                         (r : (σ , e) ⇝! (τ , e')) → 
             (e ⟪ τ , inp! r , ⇝!-mono r ⟫) ↦* (e' ⟪ τ , inp! r , ≤s-refl ⟫)
-⇝-sound (fill x o []) = {!!}
+⇝-sound (fill x o []) = {!!} 
 ⇝-sound (fill x o (r ∷ rs)) = {!!}
