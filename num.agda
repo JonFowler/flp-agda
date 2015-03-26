@@ -61,29 +61,36 @@ updS (S n) (there p) with updS n p
 updS (S n) (there p) | s' , p' = S s' , there p'
 updS _  _ = Z , here
 
-data _[_]:=_ : (s : NatSub) → NatVar → Maybe (Nat NatVar) → Set where 
+data _[_]:=_ : (s : NatSub) → NatVar → Maybe (Nat Unit) → Set where 
   hereZ : Z [ here ]:= just Z 
-  hereS : {a : NatSub} → S a [ here ]:= just (S (there here)) 
+  hereS : {a : NatSub} → S a [ here ]:= just (S unit) 
   hereH : hole [ here ]:= nothing
   thereZ : {s : NatSub}{p : NatVar} → s [ p ]:=  just Z → S s [ there p ]:= just Z 
-  thereS : {s : NatSub}{p p' : NatVar} → s [ p ]:=  just (S p' ) → 
-                S s [ there p ]:= just (S (there p')) 
+  thereS : {s : NatSub}{p  : NatVar} → s [ p ]:=  just (S unit) → 
+                S s [ there p ]:= just (S unit) 
   thereH : {s : NatSub}{p : NatVar} → s [ p ]:= nothing → S s [ there p ]:= nothing
 
  
 data ExpM (V : ℕ) (M : ℕ) : Set where
-  nat : Nat (ExpM V M) → ExpM V M
+  Z : ExpM V M
+  S :  ExpM V M → ExpM V M
   var : Fin V → ExpM V M
   mvar : (x : Fin M) → (p : NatVar )  → ExpM V M 
   case_alt₀_altₛ_ : ExpM V M → ExpM V M → ExpM (suc V) M → ExpM V M
   
+data _∈E_ {V M : ℕ} : ExpM V M → Subs M → Set where
+  Z : ∀{σ} → Z ∈E σ
+  S : ∀{e σ} → e ∈E σ → S e ∈E σ
+  var : ∀{v σ} → var v ∈E σ
+  mvar : ∀{σ}{x : Fin M}{p : NatVar} → p ∈ₛ lookup x σ  → mvar x p ∈E σ
+  case_alt₀_altₛ_ : ∀{e e' e'' σ} → e ∈E σ → e' ∈E σ → e'' ∈E σ → case e alt₀ e' altₛ e'' ∈E σ 
+  
 Exp : (V : ℕ) → Set
 Exp V = ExpM V 0 
-
   
 natToExp : ∀{M V} (s : NatSub) → Nohole s → (p : NatVar) → p ∈ₛ s → ExpM V M
-natToExp Z Z here here = nat Z
-natToExp (S n) (S n') here here = nat (S (natToExp n n' here here))
+natToExp Z Z here here = Z
+natToExp (S n) (S n') here here = (S (natToExp n n' here here))
 natToExp (S n) (S n') (there p) (there p') = natToExp n n' p p'
  
 sucVar : {V' : ℕ}(V : ℕ) → Fin (V + V') → Fin (V + suc V')
@@ -92,15 +99,23 @@ sucVar (suc V) zero = zero
 sucVar (suc V) (suc n) = suc (sucVar V n)
 
 sucExp : {V' M : ℕ}(V : ℕ) → ExpM (V + V') M → ExpM (V + suc V') M
-sucExp V (nat Z) = nat Z
-sucExp V (nat (S x)) = nat (S (sucExp V x))
+sucExp V Z = Z
+sucExp V (S x) = S (sucExp V x)
 sucExp V (var x) = var (sucVar V x) 
 sucExp V (mvar x p) = mvar x p
 sucExp V (case e alt₀ e₁ altₛ e₂) = case (sucExp V e) alt₀ (sucExp V e₁) altₛ sucExp (suc V) e₂
 
+sucExp-in : {V' M : ℕ}(V : ℕ){σ : Subs M}{e : ExpM (V + V') M} 
+             → e ∈E σ → sucExp V e ∈E σ
+sucExp-in V Z = Z
+sucExp-in V (S e₁) = S (sucExp-in V e₁)
+sucExp-in V var = var
+sucExp-in V (mvar x₁) = mvar x₁
+sucExp-in V (case e₁ alt₀ e₂ altₛ e₃) = case sucExp-in V e₁ alt₀ sucExp-in V e₂ altₛ sucExp-in (suc V) e₃
+
 sub : {V' M : ℕ} (V : ℕ) → ExpM (V + suc V') M → ExpM V' M → ExpM (V + V') M
-sub V (nat Z) ef = nat Z
-sub V (nat (S x)) ef = nat (S (sub V x ef))
+sub V Z ef = Z
+sub V (S x) ef = S (sub V x ef)
 sub zero (var zero) ef = ef
 sub zero (var (suc x)) ef = var x
 sub (suc V) (var zero) ef = var zero
@@ -108,19 +123,36 @@ sub (suc V) (var (suc x)) ef with sub V (var x) ef
 ... | e' = sucExp 0 e'
 sub V (mvar x p) ef = mvar x p
 sub V (case e alt₀ e₁ altₛ e₂) ef = case sub V e ef alt₀ sub V e₁ ef altₛ sub (suc V) e₂ ef
+
+sub-in : {V' M : ℕ}(V : ℕ){σ : Subs M}{e : ExpM (V + suc V') M}{e' : ExpM V' M} 
+             → e ∈E σ → e' ∈E σ → sub V e e' ∈E σ
+sub-in V Z e'' = Z
+sub-in V (S e₁) e'' = S (sub-in V e₁ e'')
+sub-in zero {e = var zero} var e'' = e''
+sub-in zero {e = var (suc v)} var e'' = var 
+sub-in (suc V) {e = var zero} var e'' = var
+sub-in (suc V) {e = var (suc v)} var e'' with sub-in V {e = var v} var e''
+... | b  = sucExp-in 0 b
+sub-in V (mvar x₁) e'' = mvar x₁
+sub-in V (case e₁ alt₀ e₂ altₛ e₃) e'''' = case sub-in V e₁ e'''' alt₀ sub-in V e₂ e'''' altₛ
+                                             sub-in (suc V) e₃ e''''
+
   
 _[-_-] : {V M : ℕ} → ExpM (suc V) M → ExpM V M → ExpM V M
 _[-_-] = sub 0
   
 data _↦R_ {M : ℕ} : ExpM 0 M → ExpM 0 M → Set where
-  caseZ :  (e : ExpM 0 M) → (e' : ExpM 1 M) → case (nat Z) alt₀ e altₛ e' ↦R e
+  caseZ :  (e : ExpM 0 M) → (e' : ExpM 1 M) → case Z alt₀ e altₛ e' ↦R e
   caseS : {ef : ExpM 0 M} → (e : ExpM 0 M) → (e' : ExpM 1 M)   
-                → case (nat (S ef)) alt₀ e altₛ e' ↦R e' [- ef -]
+                → case (S ef) alt₀ e altₛ e' ↦R e' [- ef -]
+                
+↦R-in : ∀{M}{σ : Subs M}{e e' : ExpM 0 M} → e ↦R  e' → e ∈E σ → e' ∈E σ
+↦R-in (caseZ e' e'') (case e₁ alt₀ e₂ altₛ e₃) = e₂
+↦R-in (caseS e' e'') (case S e₁ alt₀ e₂ altₛ e₃) = sub-in 0 e₃ e₁
 
 data Cxt (V : ℕ) (M : ℕ)  : Set where
   hole : Cxt V M
   case_alt₀_altₛ_ : Cxt V M → ExpM V M → ExpM (suc V) M → Cxt V M
-  
   
 _[/_] : ∀{M V} → Cxt V M → ExpM V M → ExpM V M
 hole [/ e ] = e
@@ -144,13 +176,17 @@ updEnv σ x p | s | s' , p' = (insert x s' σ) , mvar x p'
 
 data _⇝R_ {m : ℕ} : Env m → Env m → Set where
   lift : {σ : Subs m}{e e' : ExpM 0 m} → e ↦R e' → (σ , e) ⇝R (σ , e')
-  var : {σ : Subs m}{x : Fin m}{s : NatSub} → let s = lookup x σ in 
-             {p : NatVar}{a : Nat NatVar} → 
-             s [ p ]:= just a → 
-             (σ , mvar x p) ⇝R (σ , nat (mapNat (mvar x) a))
+  varZ : {σ : Subs m}{x : Fin m}{s : NatSub} → let s = lookup x σ in 
+             {p : NatVar} → 
+             s [ p ]:= just Z → 
+             (σ , mvar x p) ⇝R (σ , Z)
+  varS : {σ : Subs m}{x : Fin m}{s : NatSub} → let s = lookup x σ in 
+             {p : NatVar} → 
+             s [ p ]:= just (S unit) → 
+             (σ , mvar x p) ⇝R (σ , S (mvar x (there p)))
   bind0 : {σ : Subs m}{x : Fin m}{s : NatSub} → let s = lookup x σ in 
            {p : NatVar} → s [ p ]:= nothing → 
-          (σ , mvar x p) ⇝R (insert x (updZ s p) σ , nat Z) 
+          (σ , mvar x p) ⇝R (insert x (updZ s p) σ , Z) 
   bindS : {σ : Subs m}{x : Fin m}{s : NatSub} → let s = lookup x σ in 
     {p : NatVar} → s [ p ]:= nothing → 
     (σ , mvar x p) ⇝R updEnv σ x p
@@ -200,9 +236,17 @@ updS-mono (thereH P) = ≤S (updS-mono P)
                                         
 ⇝R-mono : ∀{m}{σ σ' : Subs m}{e e' : ExpM 0 m} →   (σ , e) ⇝R (σ' , e') → σ ≤s σ'
 ⇝R-mono (lift x) = ≤s-refl
-⇝R-mono (var x) = ≤s-refl
+⇝R-mono (varZ x) = ≤s-refl
+⇝R-mono (varS x) = ≤s-refl
 ⇝R-mono (bind0 {x = x} i) = insert-point x (updZ-mono i)
 ⇝R-mono (bindS {x = x} i) = insert-point x (updS-mono i)
+
+⇝R-in : ∀{m}{σ σ' : Subs m}{e e' : ExpM 0 m} → (σ , e) ⇝R (σ' , e') → e ∈E σ → e' ∈E σ'
+⇝R-in (lift x) e₁ = ↦R-in x e₁
+⇝R-in (varZ x₁) e = Z
+⇝R-in (varS x₁) (mvar x₂) = {!!}
+⇝R-in (bind0 x₁) (mvar x₂) = {!!}
+⇝R-in (bindS x₁) (mvar x₂) = {!!}
 
 getOrd : ∀{m}{σ σ' : Subs m} → σ ≤s σ' → (x : Fin m) → lookup x σ ≤N lookup x σ'
 getOrd (x ∷ o) zero = x
@@ -227,15 +271,14 @@ getOrd (_ ∷ o) (suc x) = getOrd o x
 --repl (a ∷ τ) (x ∷ is) (mvar (suc x₁) p) = repl τ is (mvar x₁ p)
 --repl τ is (case e alt₀ e₁ altₛ e₂) = case repl τ is e alt₀ repl τ is e₁ altₛ repl τ is e₂
 --
---_⟪_,_,_⟫ : ∀{V m}{σ : Subs m} → ExpM V σ → (τ : Subs m) → (VecI Nohole τ) → σ ≤s τ  → Exp V
---e ⟪ ns , is , o ⟫ = repl  ns is (embExp o e)
-----nat Z ⟪ ns , is , o ⟫ = nat Z
-----nat (S e) ⟪ ns , is , o ⟫ = nat (S (e ⟪ ns , is , o ⟫))
-----var x ⟪ ns , is , o ⟫ = var x
-----mvar zero p ⟪ n ∷ ns , i ∷ is , o ∷ _ ⟫ = natToExp (n , i) (embVar o p)
-----mvar (suc x) p ⟪ n ∷ ns , i ∷ is , _ ∷ o ⟫ = mvar x p ⟪ ns , is , o ⟫ 
-----(case e alt₀ e₁ altₛ e₂) ⟪ ns , is , o ⟫ = case e ⟪ ns , is , o ⟫ alt₀ e₁ ⟪ ns , is , o ⟫ altₛ e₂ ⟪ ns , is , o ⟫
--- 
+_⟪_,_,_⟫ : ∀{V M} → (e : ExpM V M) → (τ : Subs M) → (VecI Nohole τ) → e ∈E τ  → Exp V
+Z ⟪ ns , is , Z ⟫ = Z
+S e ⟪ ns , is , S o ⟫ = S (e ⟪ ns , is , o ⟫)
+var x ⟪ ns , is , var ⟫ = var x
+mvar zero p ⟪ a ∷ σ , x ∷ is , mvar x₁ ⟫ =  natToExp a x p x₁
+mvar (suc x) p ⟪ a ∷ σ , x₁ ∷ is , mvar x₂ ⟫ = mvar x p ⟪ σ , is , mvar x₂ ⟫
+(case e alt₀ e₁ altₛ e₂) ⟪ ns , is , case o alt₀ o₁ altₛ o₂ ⟫ =
+      case e ⟪ ns , is , o ⟫ alt₀ e₁ ⟪ ns , is , o₁ ⟫ altₛ e₂ ⟪ ns , is , o₂ ⟫
 --
 data _⇝_ {m : ℕ} : Env m → Env m → Set where
   prom : {σ σ' : Subs m}{e e' : ExpM 0 m} → 
