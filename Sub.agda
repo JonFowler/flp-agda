@@ -7,6 +7,7 @@ open import Data.Fin hiding (_+_ ) hiding (lift)
 open import Data.Nat 
 open import Function
 open import Data.Unit
+open import Agda.Primitive
 open import Relation.Binary.PropositionalEquality
 open import VecI
 
@@ -18,7 +19,10 @@ data Nat (A : Set) : Set where
 mapNat : {A B : Set} → (A → B) → Nat A → Nat B
 mapNat f Z = Z
 mapNat f (S x) =  S (f x) 
- 
+
+cong₃ : ∀ {a b c d} {A : Set a} {B : Set b} {C : Set c} {D : Set d}
+        (f : A → B → C → D) {x y u v m n} → x ≡ y → u ≡ v → m ≡ n → f x u m ≡ f y v n
+cong₃ f refl refl refl = refl
 
 data Sub : Set where
   hole : Sub
@@ -48,6 +52,10 @@ data SubVar : Set where
 data _∈ₛ_ : SubVar → Sub → Set where
   here : ∀{s} → here ∈ₛ s
   there : ∀{p s} → p ∈ₛ s → there p ∈ₛ S s
+  
+∈ₛ-uniq : ∀{p s} → (i1 : p ∈ₛ s) → (i2 : p ∈ₛ s) → i1 ≡ i2
+∈ₛ-uniq here here = refl
+∈ₛ-uniq (there i1) (there i2) = cong there (∈ₛ-uniq i1 i2)
   
 updZ : SubVar → Sub → Sub
 updZ here s = Z 
