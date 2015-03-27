@@ -87,10 +87,17 @@ data _∈E_ {V M : ℕ} : ExpM V M → Subs M → Set where
 Exp : (V : ℕ) → Set
 Exp V = ExpM V 0 
   
-natToExp : ∀{M V} (s : NatSub) → Nohole s → (p : NatVar) → p ∈ₛ s → ExpM V M
-natToExp Z Z here here = Z
-natToExp (S n) (S n') here here = (S (natToExp n n' here here))
-natToExp (S n) (S n') (there p) (there p') = natToExp n n' p p'
+natToExp' : ∀{M V} (x : Fin M) → (p : NatVar) → (s : NatSub) → 
+            (p' : NatVar) →  p' ∈ₛ s → ExpM V M
+natToExp' x p hole here here = mvar x p
+natToExp' x p Z here here = Z
+natToExp' x p (S s) here here = S (mvar x (there p))
+natToExp' x p (S s) (there p₁) (there i) = natToExp' x p s p₁ i 
+
+natToExp : ∀{M V} (x : Fin M) → (p : NatVar) → (s : NatSub) → 
+             p ∈ₛ s → ExpM V M
+natToExp x p s i = natToExp' x p s p i
+
  
 sucVar : {V' : ℕ}(V : ℕ) → Fin (V + V') → Fin (V + suc V')
 sucVar zero n = suc n
@@ -287,14 +294,13 @@ emb-exp o (case e₁ alt₀ e₂ altₛ e₃) = case emb-exp o e₁ alt₀ emb-e
 --repl (a ∷ τ) (x ∷ is) (mvar (suc x₁) p) = repl τ is (mvar x₁ p)
 --repl τ is (case e alt₀ e₁ altₛ e₂) = case repl τ is e alt₀ repl τ is e₁ altₛ repl τ is e₂
 
-_⟪_,_,_⟫ : ∀{V M} → (e : ExpM V M) → (τ : Subs M) → (VecI Nohole τ) → e ∈E τ  → Exp V
-Z ⟪ ns , is , Z ⟫ = Z
-S e ⟪ ns , is , S o ⟫ = S (e ⟪ ns , is , o ⟫)
-var x ⟪ ns , is , var ⟫ = var x
-mvar zero p ⟪ a ∷ σ , x ∷ is , mvar x₁ ⟫ =  natToExp a x p x₁
-mvar (suc x) p ⟪ a ∷ σ , x₁ ∷ is , mvar x₂ ⟫ = mvar x p ⟪ σ , is , mvar x₂ ⟫
-(case e alt₀ e₁ altₛ e₂) ⟪ ns , is , case o alt₀ o₁ altₛ o₂ ⟫ =
-      case e ⟪ ns , is , o ⟫ alt₀ e₁ ⟪ ns , is , o₁ ⟫ altₛ e₂ ⟪ ns , is , o₂ ⟫
+_⟪_,_⟫ : ∀{V M} → (e : ExpM V M) → (τ : Subs M) → e ∈E τ  → ExpM V M
+Z ⟪ ns ,  Z ⟫ = Z
+S e ⟪ ns ,  S o ⟫ = S (e ⟪ ns , o ⟫)
+var x ⟪ ns ,  var ⟫ = var x
+mvar x p ⟪ ns , mvar x₁ ⟫ = natToExp x p (lookup x ns) x₁
+(case e alt₀ e₁ altₛ e₂) ⟪ ns , case o alt₀ o₁ altₛ o₂ ⟫ =
+      case e ⟪ ns , o ⟫ alt₀ e₁ ⟪ ns , o₁ ⟫ altₛ e₂ ⟪ ns ,  o₂ ⟫
 --
 data _⇝_ {m : ℕ} : Env m → Env m → Set where
   prom : {σ σ' : Subs m}{e e' : ExpM 0 m} → 
@@ -328,33 +334,35 @@ data _⇝!_ {m : ℕ} : Env m → Env m → Set where
 inp! : ∀{m}{τ : Subs m} {e : ExpM 0 m}{s : Env m} → s ⇝! (τ , e) → VecI Nohole τ
 inp! {s = proj₁ , proj₂} (fill x o x₁) = x
 
+≤N-trans-refl : {s s' : NatSub}{o : s ≤N s'} → o ≡ ≤N-trans ≤N-refl o 
+≤N-trans-refl {o = ≤hole} = refl
+≤N-trans-refl {o = ≤Z} = refl
+≤N-trans-refl {o = ≤S o} = cong ≤S ≤N-trans-refl
+
+
+≤s-trans-refl : ∀{m}{σ σ' : Subs m}{o : σ ≤s σ'} → o ≡ ≤s-trans ≤s-refl o 
+≤s-trans-refl {o = []} = refl
+≤s-trans-refl {o = x ∷ o} = cong₂ _∷_ ≤N-trans-refl ≤s-trans-refl 
+
 ⇝!-mono : ∀{m}{σ τ : Subs m}{e e' : ExpM 0 m} → (σ , e) ⇝! (τ , e') → σ ≤s τ
 ⇝!-mono (fill x o r) = ≤s-trans (⇝*-mono r) o 
 
 ⇝!-in : ∀{m}{σ τ : Subs m}{e e' : ExpM 0 m} → (σ , e) ⇝! (τ , e') → e ∈E σ → e' ∈E τ
 ⇝!-in (fill x o r) i = emb-exp o (⇝*-in r i)
 
+⇝*-sound :  ∀{M}{σ τ : Subs M}{e e' : ExpM 0 M} → 
+                    (i : e ∈E σ) → (r : (σ , e) ⇝* (τ , e')) →  
+            (e ⟪ τ , emb-exp (⇝*-mono r) i ⟫ ) ↦* (e' ⟪ τ , ⇝*-in r i ⟫ )
+⇝*-sound i [] = {!!}
+⇝*-sound i (_∷_ {s' = ._ , ._} (prom (lift x) H) r₁) = {!i!} -- {!!} ∷ {!⇝*-sound i r₁!}
+⇝*-sound i (_∷_ {s' = ._ , .(H [/ Z ])} (prom (varZ x₁) H) r₁) = {!!}
+⇝*-sound i (_∷_ {s' = ._ , ._} (prom (varS x₁) H) r₁) = {!!}
+⇝*-sound i (_∷_ {s' = ._ , .(H [/ Z ])} (prom (bind0 x₁) H) r₁) = {!!}
+⇝*-sound i (_∷_ {s' = ._ , ._} (prom (bindS x₁) H) r₁) = {!!}
 
---emb-emp : ∀{V}{e : Exp V} → embExp [] e ≡ e
---emb-emp {e = nat Z} = refl
---emb-emp {e = nat (S e)} = cong (nat ∘ S) emb-emp
---emb-emp {e = var x} = refl
---emb-emp {e = mvar () p}
---emb-emp {e = case e alt₀ e₁ altₛ e₂} = 
---     cong₂ (λ x p → case x alt₀ proj₁ p altₛ proj₂ p) emb-emp (cong₂ _,_ emb-emp emb-emp)
---
---emb-equiv : ∀{m V}{σ τ : Subs m}{τ' : VecI Nohole τ} → (o : σ ≤s τ) → (e : ExpM V σ) →
---                   embExp o e ⟪ τ , τ' , ≤s-refl ⟫ ≡ e ⟪ τ , τ' , o ⟫ 
-----emb-equiv {τ' = []} [] e = cong (λ e' → e' ⟪ [] , [] , [] ⟫) (emb-emp {e = e}) 
---emb-equiv o (nat Z) = refl
---emb-equiv o (nat (S e)) = cong (nat ∘ S) (emb-equiv o e)
---emb-equiv o (var x₁) = refl
---emb-equiv (x ∷ o) (mvar zero p) = {!x!}
---emb-equiv (x ∷ o) (mvar (suc x₁) p) = {!!}
---emb-equiv o (case e alt₀ e₁ altₛ e₂) = {!!}
---   
---⇝-sound : ∀{m}{σ τ : Subs m}{e : ExpM 0 σ}{e' : ExpM 0 τ} → 
---                        (r : (σ , e) ⇝! (τ , e')) → 
---            (e ⟪ τ , inp! r , ⇝!-mono r ⟫) ↦* (e' ⟪ τ , inp! r , ≤s-refl ⟫)
---⇝-sound (fill x o []) = {!!} 
---⇝-sound (fill x o (r ∷ rs)) = {!!}
+
+--⇝!-sound : ∀{M}{σ τ : Subs M}{e e' : ExpM 0 M} → 
+--                    (i : e ∈E σ) → (r : (σ , e) ⇝! (τ , e')) →  
+--            (e ⟪ τ , inp! r , emb-exp (⇝!-mono r) i ⟫) ↦* (e' ⟪ τ , inp! r , ⇝!-in r i ⟫)
+--⇝!-sound {τ = τ} {e} i (fill x o []) = subst (λ o' → e ⟪ τ , x , emb-exp o' i ⟫ ↦* e ⟪ τ , x , emb-exp o i ⟫) ≤s-trans-refl []
+--⇝!-sound i (fill x o (_∷_ {s' = σ' , ._} (prom r H) r₁)) = {!r!} 
