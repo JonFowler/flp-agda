@@ -48,15 +48,15 @@ Exp : (V : ℕ) → Set
 Exp V = ExpM V 0 
   
 natToExp' : ∀{M V} (x : Fin M) → (p : SubVar) → (s : Sub) → 
-            (p' : SubVar) →  p' ∈ₛ s → ExpM V M
-natToExp' x p hole here here = mvar x p
-natToExp' x p Z here here = Z
-natToExp' x p (S s) here here = S (mvar x (there p))
-natToExp' x p (S s) (there p₁) (there i) = natToExp' x p s p₁ i 
+            (p' : SubVar) →  ExpM V M
+natToExp' x p hole here = mvar x p
+natToExp' x p hole (there w) = Z
+natToExp' x p Z _ = Z
+natToExp' x p (S s) here = S (mvar x (there p))
+natToExp' x p (S s) (there p₁) = natToExp' x p s p₁  
 
-natToExp : ∀{M V} (x : Fin M) → (p : SubVar) → (s : Sub) → 
-             p ∈ₛ s → ExpM V M
-natToExp x p s i = natToExp' x p s p i
+natToExp : ∀{M V} (x : Fin M) → (p : SubVar) → (s : Sub) → ExpM V M
+natToExp x p s = natToExp' x p s p
  
 sucVar : {V' : ℕ}(V : ℕ) → Fin (V + V') → Fin (V + suc V')
 sucVar zero n = suc n
@@ -181,65 +181,69 @@ data _⇝R_ {m : ℕ} : Env m → Env m → Set where
 ⇝R-in (lift x) i = ↦R-in x i
 ⇝R-in (meta x x₁) (case i alt₀ i₁ altₛ i₂) =  ↦R-in x₁ (case ⇝M-in x i alt₀ emb-exp (⇝M-mono x) i₁ altₛ emb-exp (⇝M-mono x) i₂)
 
-_⟪_,_⟫ : ∀{V M} → (e : ExpM V M) → (τ : Subs M) → e ∈E τ  → ExpM V M
-Z ⟪ ns ,  Z ⟫ = Z
-S e ⟪ ns ,  S o ⟫ = S (e ⟪ ns , o ⟫)
-var x ⟪ ns ,  var ⟫ = var x
-mvar x p ⟪ ns , mvar x₁ ⟫ = natToExp x p (lookup x ns) x₁
-(case e alt₀ e₁ altₛ e₂) ⟪ ns , case o alt₀ o₁ altₛ o₂ ⟫ =
-      case e ⟪ ns , o ⟫ alt₀ e₁ ⟪ ns , o₁ ⟫ altₛ e₂ ⟪ ns ,  o₂ ⟫
+_⟪_⟫ : ∀{V M} → (e : ExpM V M) → (τ : Subs M) → ExpM V M
+Z ⟪ ns ⟫ = Z
+S e ⟪ ns ⟫ = S (e ⟪ ns ⟫)
+var x ⟪ ns ⟫ = var x
+mvar x p ⟪ ns ⟫ = natToExp x p (lookup x ns) 
+(case e alt₀ e₁ altₛ e₂) ⟪ ns ⟫ =
+      case e ⟪ ns ⟫ alt₀ e₁ ⟪ ns ⟫ altₛ e₂ ⟪ ns ⟫
       
-sub-eq : ∀{m v}{e : ExpM v m}{σ : Subs m} → {i i' : e ∈E σ} →  e ⟪ σ , i ⟫ ≡ e ⟪ σ , i' ⟫
+sub-eq : ∀{m v}{e : ExpM v m}{σ : Subs m} → {i i' : e ∈E σ} →  e ⟪ σ ⟫ ≡ e ⟪ σ ⟫
 sub-eq {i = i} {i'} with ∈E-uniq i i'
 sub-eq | refl = refl
 
-suc-natToExp :  ∀{V' M} (V : ℕ) {x : Fin M} {p : SubVar}{s : Sub}{p' : SubVar}(i : p' ∈ₛ s) → sucExp {V' = V'} V (natToExp' x p s p' i) ≡ natToExp' x p s p' i
-suc-natToExp V {x} {p} {hole } {.here} here = refl
-suc-natToExp V {x} {p} {Z    } {.here} here = refl
-suc-natToExp V {x} {p} {(S s)} {.here} here = refl
-suc-natToExp V {x} {p} {(S s)} {(there p')} (there i) = suc-natToExp V i 
+suc-natToExp :  ∀{V V' M} {x : Fin M} {p : SubVar}(s : Sub)(p' : SubVar) → sucExp {V' = V'} V (natToExp' x p s p') ≡ natToExp' x p s p'
+suc-natToExp hole  here = refl
+suc-natToExp hole  (there p') = refl 
+suc-natToExp Z     a = refl 
+suc-natToExp (S s) here = refl
+suc-natToExp (S s) (there p') = suc-natToExp s p'
 
-sub-natToExp : ∀{V V' M}{e : ExpM V' M}{x : Fin M}{p : SubVar}{s : Sub}{p' : SubVar}(i : p' ∈ₛ s) → sub V (natToExp' x p s p' i) e ≡ natToExp' x p s p' i
-sub-natToExp {s = hole} here = refl
-sub-natToExp {s = Z} here = refl
-sub-natToExp {s = S s} here = refl
-sub-natToExp (there i) = sub-natToExp i
+sub-natToExp : ∀{V V' M}{e : ExpM V' M}{x : Fin M}{p : SubVar}(s : Sub)(p' : SubVar) → sub V (natToExp' x p s p') e ≡ natToExp' x p s p'
+sub-natToExp hole here = refl
+sub-natToExp hole (there p₁) = refl
+sub-natToExp Z a = refl
+sub-natToExp (S s) here = refl
+sub-natToExp (S s) (there p₁) = sub-natToExp s p₁
 
-sucExp-subs : {V' M : ℕ}(V : ℕ){e : ExpM (V + suc V') M}{σ : Subs M} → (i : e ∈E σ) → sucExp V (e ⟪ σ , i ⟫) ≡ sucExp V e ⟪ σ , sucExp-in V i ⟫  
+sucExp-subs : {V' M : ℕ}(V : ℕ){σ : Subs M} → (e : ExpM (V + V') M) → sucExp V (e ⟪ σ ⟫) ≡ sucExp V e ⟪ σ ⟫  
 sucExp-subs V Z = refl
 sucExp-subs V (S i) = cong S (sucExp-subs V i)
-sucExp-subs V var = refl
-sucExp-subs V (mvar x₁) = suc-natToExp V x₁
+sucExp-subs V (var v) = refl
+sucExp-subs V {σ = σ} (mvar x p) = suc-natToExp (lookup x σ) p
 sucExp-subs V (case i alt₀ i₁ altₛ i₂) = cong₃ case_alt₀_altₛ_ (sucExp-subs V i) (sucExp-subs V i₁) (sucExp-subs (suc V) i₂)
       
-sub-subs : {V' M : ℕ}(V : ℕ){e : ExpM (V + suc V') M}{e' : ExpM V' M}{σ : Subs M} → (i : e ∈E σ) → (i' : e' ∈E σ) → sub V (e ⟪ σ , i ⟫) (e' ⟪ σ , i' ⟫) ≡ sub V e e' ⟪ σ , sub-in V i i' ⟫  
+sub-subs : {V' M : ℕ}(V : ℕ){σ : Subs M} → (e : ExpM (V + suc V') M) → (e' : ExpM V' M) → sub V (e ⟪ σ ⟫) (e' ⟪ σ ⟫) ≡ sub V e e' ⟪ σ ⟫  
 sub-subs V Z i' = refl
 sub-subs V (S i) i' = cong S (sub-subs V i i')
-sub-subs zero (var {zero}) i' = refl
-sub-subs zero (var {suc v}) i' = refl
-sub-subs (suc V) (var {zero}) i' = refl
-sub-subs (suc V) (var {suc v}) i' with (sub-subs V (var {v = v}) i') 
-... | p = trans (cong (sucExp 0) p) {!sucExp-subs 0 ?!} -- cong (sucExp 0) p
-sub-subs V (mvar {x = x} x₁) i' = sub-natToExp x₁
+sub-subs zero (var zero) i' = refl
+sub-subs zero (var (suc v)) i' = refl
+sub-subs (suc V) (var (zero)) i' = refl
+sub-subs (suc V) (var (suc v)) i' with sub-subs V (var v) i' 
+... | p = trans (cong (sucExp 0) p) (sucExp-subs zero (sub V (var v) i')) -- cong (sucExp 0) p
+sub-subs V {σ = σ} (mvar x p) i' = sub-natToExp (lookup x σ) p
 sub-subs V (case i alt₀ i₁ altₛ i₂) i' = cong₃ case_alt₀_altₛ_ (sub-subs V i i') (sub-subs V i₁ i') (sub-subs (suc V) i₂ i')
      
-↦R-subs : ∀{m}{e e' : ExpM 0 m} → (r : e ↦R e') → (σ : Subs m) → (i : e ∈E σ) →  e ⟪ σ , i ⟫ ↦R e' ⟪ σ , ↦R-in r i ⟫
-↦R-subs (caseZ e e') σ (case Z alt₀ i₁ altₛ i₂) = caseZ (e ⟪ σ , i₁ ⟫) (e' ⟪ σ , i₂ ⟫)
-↦R-subs (caseS {ef = ef} e e'') σ (case S i alt₀ i₁ altₛ i₂) = 
-        subst (λ e' → (case S (ef ⟪ σ , i ⟫) alt₀ e ⟪ σ , i₁ ⟫ altₛ (e'' ⟪ σ , i₂ ⟫)) ↦R e' ) (sub-subs 0 i₂ i) (caseS (e ⟪ σ , i₁ ⟫) (e'' ⟪ σ , i₂ ⟫)) -- caseS ? {!caseS!}
+↦R-subs : ∀{m}{e e' : ExpM 0 m} → (r : e ↦R e') → (σ : Subs m) →  e ⟪ σ ⟫ ↦R e' ⟪ σ ⟫
+↦R-subs (caseZ e e') σ = caseZ (e ⟪ σ ⟫) (e' ⟪ σ ⟫)
+↦R-subs (caseS {ef = ef} e e'') σ  = 
+        subst (λ e' → (case S (ef ⟪ σ ⟫) alt₀ e ⟪ σ ⟫ altₛ (e'' ⟪ σ ⟫)) ↦R e' ) (sub-subs 0 e'' ef) (caseS (e ⟪ σ ⟫) (e'' ⟪ σ ⟫)) -- caseS ? {!caseS!}
 
 --case S ? alt₀ e ⟪ σ , i₁ ⟫ altₛ (e'' ⟪ σ , i₂ ⟫)) ↦ e'
 
-subZ :      ≡ mvar x p ⟪ σ , i ⟫ 
+--subZ :      ≡ mvar x p ⟪ σ , i ⟫ 
       
 ⇝R-sound :  ∀{M}{σ τ : Subs M}{e e' : ExpM 0 M} → 
                     (i : e ∈E σ) → (r : (σ , e) ⇝R (τ , e')) →  
-            (e ⟪ τ , emb-exp (⇝R-mono r) i ⟫ ) ↦R (e' ⟪ τ , ⇝R-in r i ⟫ )
-⇝R-sound {σ = σ}{e = e}{e'} i (lift x) = subst (λ a → e ⟪ σ , a ⟫ ↦R (e' ⟪ σ , ↦R-in x i ⟫)) (∈E-uniq i (emb-exp ≤s-refl i)) (↦R-subs x σ i)
-⇝R-sound (case i alt₀ i₁ altₛ i₂) (meta (varZ x₁) (caseZ e' e'')) = {!!}
-⇝R-sound i (meta (varS x₁) (caseS e eₛ)) = {!!}
-⇝R-sound i (meta (bind0 x₁) (caseZ e e')) = {!!}
-⇝R-sound i (meta (bindS x₁) (caseS e eₛ)) = {!!}
+            (e ⟪ τ ⟫ ) ↦R (e' ⟪ τ ⟫ )
+⇝R-sound {σ = σ}{e = e}{e'} i (lift x) = ↦R-subs x σ
+⇝R-sound {σ = σ}(case i alt₀ i₁ altₛ i₂) (meta (varZ x₁) (caseZ e' e'')) = 
+         subst (λ x → case x alt₀ e' ⟪ σ ⟫ altₛ e'' ⟪ σ ⟫ ↦R (e' ⟪ σ ⟫)) {!!} 
+           (caseZ (e' ⟪ σ ⟫) (e'' ⟪ σ ⟫))
+⇝R-sound (case i alt₀ i₁ altₛ i₂) (meta (varS x₁) (caseS e' e'')) = {!!}
+⇝R-sound (case i alt₀ i₁ altₛ i₂) (meta (bind0 x₁) (caseZ e' e'')) = {!!}
+⇝R-sound (case i alt₀ i₁ altₛ i₂) (meta (bindS x₁) (caseS e' e'')) = {!!}
 
 
 
