@@ -57,24 +57,14 @@ data _∈ₛ_ : SubVar → Sub → Set where
 ∈ₛ-uniq here here = refl
 ∈ₛ-uniq (there i1) (there i2) = cong there (∈ₛ-uniq i1 i2)
   
-updZ : SubVar → Sub → Sub
-updZ here s = Z 
-updZ (there p) (S n) = S (updZ p n)
-updZ  _ _ = Z
+updateS : Sub → SubVar → Sub → Sub
+updateS s here s' = s 
+updateS s (there p) (S n) = S (updateS s p n)
+updateS s  _ _ = s 
 
-updS :  SubVar → Sub → Sub 
-updS here s = S hole 
-updS (there p) (S n) = S (updS p n)
-updS _  _ = Z 
-
-data _[_]:=_ : (s : Sub) → SubVar → Maybe (Nat Unit) → Set where 
-  hereZ : Z [ here ]:= just Z 
-  hereS : {a : Sub} → S a [ here ]:= just (S unit) 
-  hereH : hole [ here ]:= nothing
-  thereZ : {s : Sub}{p : SubVar} → s [ p ]:=  just Z → S s [ there p ]:= just Z 
-  thereS : {s : Sub}{p  : SubVar} → s [ p ]:=  just (S unit) → 
-                S s [ there p ]:= just (S unit) 
-  thereH : {s : Sub}{p : SubVar} → s [ p ]:= nothing → S s [ there p ]:= nothing
+data _[_]:=_ : (s : Sub) → SubVar → Sub → Set where 
+  here : {s : Sub} → s [ here ]:= s 
+  there : {s s' : Sub}{p : SubVar} → s [ p ]:= s' → S s [ there p ]:= s'
 
 data _≤ₛ_ : Sub → Sub → Set where
   ≤hole : {s : Sub} → hole ≤ₛ s 
@@ -112,13 +102,9 @@ upd-point : ∀{m}{σ : Subs m}{f : Sub → Sub} (x : Fin m) → (lookup x σ �
 upd-point {σ = x ∷ σ} zero o = o ∷ ≤s-refl
 upd-point {σ = s ∷ σ} (suc x) o = ≤ₛ-refl ∷ upd-point x o 
 
-updZ-mono : ∀{s}{p : SubVar} → s [ p ]:= nothing → s ≤ₛ updZ p s
-updZ-mono hereH = ≤hole
-updZ-mono (thereH P) = ≤S (updZ-mono P)
-
-updS-mono : ∀{s}{p : SubVar} → s [ p ]:= nothing → s ≤ₛ updS p s
-updS-mono hereH = ≤hole
-updS-mono (thereH P) = ≤S (updS-mono P)
+upd-mono : ∀{s s'}{p : SubVar} → s [ p ]:= hole → s ≤ₛ updateS s' p s
+upd-mono here = ≤hole
+upd-mono (there a) = ≤S (upd-mono a)
 
 ≤ₛ-trans-refl : {s s' : Sub}{o : s ≤ₛ s'} → o ≡ ≤ₛ-trans ≤ₛ-refl o
 ≤ₛ-trans-refl {o = ≤hole} = refl
@@ -130,13 +116,13 @@ updS-mono (thereH P) = ≤S (updS-mono P)
 ≤s-trans-refl {o = x ∷ o} = cong₂ _∷_ ≤ₛ-trans-refl ≤s-trans-refl 
 
 
-suc-var : {p : SubVar}{s : Sub} →  s [ p ]:= just (S unit) → p ∈ₛ s → there p ∈ₛ s
-suc-var hereS here = there here
-suc-var (thereS s₁) (there i) = there (suc-var s₁ i)
-
-updS-var : {p : SubVar}{s : Sub} →  s [ p ]:= nothing → p ∈ₛ s → there p ∈ₛ updS p s
-updS-var hereH here = there here
-updS-var (thereH o) (there i) = there (updS-var o i)
+--suc-var : {p : SubVar}{s : Sub} →  s [ p ]:= just (S unit) → p ∈ₛ s → there p ∈ₛ s
+--suc-var hereS here = there here
+--suc-var (thereS s₁) (there i) = there (suc-var s₁ i)
+--
+--updS-var : {p : SubVar}{s : Sub} →  s [ p ]:= nothing → p ∈ₛ s → there p ∈ₛ updS p s
+--updS-var hereH here = there here
+--updS-var (thereH o) (there i) = there (updS-var o i)
 
 emb-var :  {p : SubVar}{s s' : Sub} → s ≤ₛ s' → p ∈ₛ s → p ∈ₛ s'
 emb-var ≤hole here = here
