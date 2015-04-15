@@ -120,15 +120,41 @@ upd-mono (there a) = ≤S (upd-mono a)
 --suc-var hereS here = there here
 --suc-var (thereS s₁) (there i) = there (suc-var s₁ i)
 --
---updS-var : {p : SubVar}{s : Sub} →  s [ p ]:= nothing → p ∈ₛ s → there p ∈ₛ updS p s
---updS-var hereH here = there here
---updS-var (thereH o) (there i) = there (updS-var o i)
+updS-var : {s' : Sub}{p : SubVar}{s : Sub} → p ∈ₛ s →  updateS s' p s [ p ]:= s'
+updS-var here = here
+updS-var (there i) = there (updS-var i)
 
 emb-var :  {p : SubVar}{s s' : Sub} → s ≤ₛ s' → p ∈ₛ s → p ∈ₛ s'
 emb-var ≤hole here = here
 emb-var ≤Z here = here
 emb-var (≤S s₁) here = here
 emb-var (≤S s₁) (there i) = there (emb-var s₁ i)
+
+getSub : (p : SubVar) → (s : Sub) → Sub
+getSub here s = s
+getSub (there p) hole = Z
+getSub (there p) Z = Z
+getSub (there p) (S s) = getSub p s
+
+getSub-in : ∀{p s} → (p ∈ₛ s) → s [ p ]:= getSub p s
+getSub-in here = here
+getSub-in (there i) = there (getSub-in i)
+
+getSub-eq : ∀{p s s'} → s [ p ]:= s' → s' ≡ getSub p s
+getSub-eq here = refl
+getSub-eq (there p) = getSub-eq p 
+
+look-in : ∀{p s s'} → s [ p ]:= s' → (p ∈ₛ s)
+look-in here = here
+look-in (there i) = there (look-in i)
+
+look-S : ∀{p s s'} → s [ p ]:= S s' → s [ there p ]:= s' 
+look-S here = there here
+look-S (there i) = there (look-S i)
+
+look-there : ∀{p s s'} → s [ there p ]:= s' → s [ p ]:= S s' 
+look-there (there here) = here
+look-there (there (there i)) = there (look-there (there i)) 
 
 
 

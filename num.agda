@@ -47,49 +47,43 @@ emb-exp o (case e₁ alt₀ e₂ altₛ e₃) = case emb-exp o e₁ alt₀ emb-e
 Exp : (V : ℕ) → Set
 Exp V = ExpM V 0 
 
-getSub : (p : SubVar) → (s : Sub) → Sub
-getSub here s = s
-getSub (there p) hole = Z
-getSub (there p) Z = Z
-getSub (there p) (S s) = getSub p s
-
-getSub-in : ∀{p s} → (p ∈ₛ s) → s [ p ]:= getSub p s
-getSub-in here = here
-getSub-in (there i) = there (getSub-in i)
 
 conv : ∀{M V} (x : Fin M) → (p : SubVar) → (s : Sub) → ExpM V M
 conv x p hole = mvar x p
 conv x p Z = Z
 conv x p (S s) = S (conv x (there p) s)
 
-conv-in : ∀{M V}{σ : Subs M}{x : Fin M}{p : SubVar} → let s = lookup x σ in
-        (p ∈ₛ s) → conv {V = V} x p s ∈E σ
-conv-in {σ = σ}{x} i with lookup x σ
-conv-in here | hole = mvar here
-conv-in here | Z = Z
-conv-in i | S b = S {!!}
+conv-in : ∀{M V}{σ : Subs M}{x : Fin M}{s' : Sub}{p : SubVar}  →
+        (lookup x σ [ p ]:= s' ) → conv {V = V} x p s' ∈E σ
+conv-in {s' = hole} i = mvar (look-in i)
+conv-in {s' = Z} i = Z
+conv-in {s' = S s'} i = S (conv-in (look-S i))
 
   
-subToExp : ∀{M V} (x : Fin M) → (p : SubVar) → (s : Sub) → 
-            (p' : SubVar) →  ExpM V M
-subToExp x p hole here = mvar x p
-subToExp x p hole (there w) = Z
-subToExp x p Z _ = Z
-subToExp x p (S s) here = S (subToExp x (there p) s here)
-subToExp x p (S s) (there p₁) = subToExp x p s p₁  
-
-
-
-subToExp-in : ∀{M V}{σ : Subs M}{x : Fin M}{p : SubVar} → (p ∈ₛ lookup x σ) → (s : Sub) → 
-            (p' : SubVar) → subToExp {V = V} x p s p' ∈E σ
-subToExp-in i hole here = mvar i
-subToExp-in i hole (there p') = Z
-subToExp-in i Z p' = Z
-subToExp-in i (S s) here = S (subToExp-in {!!} s here)
-subToExp-in i (S s) (there p') = subToExp-in i s p'
+--subToExp : ∀{M V} (x : Fin M) → (p : SubVar) → (s : Sub) → 
+--            (p' : SubVar) →  ExpM V M
+--subToExp x p hole here = mvar x p
+--subToExp x p hole (there w) = Z
+--subToExp x p Z _ = Z
+--subToExp x p (S s) here = S (subToExp x (there p) s here)
+--subToExp x p (S s) (there p₁) = subToExp x p s p₁  
+--
+--
+--
+--subToExp-in : ∀{M V}{σ : Subs M}{x : Fin M}{p : SubVar} → (p ∈ₛ lookup x σ) → (s : Sub) → 
+--            (p' : SubVar) → subToExp {V = V} x p s p' ∈E σ
+--subToExp-in i hole here = mvar i
+--subToExp-in i hole (there p') = Z
+--subToExp-in i Z p' = Z
+--subToExp-in i (S s) here = S (subToExp-in {!!} s here)
+--subToExp-in i (S s) (there p') = subToExp-in i s p'
 
 toExp : ∀{M V} (x : Fin M) → (p : SubVar) → (s : Sub) → ExpM V M
 toExp x p s = conv x p (getSub p s) 
+
+--toExp-in : ∀{M V}{σ : Subs M}{x : Fin M}{p : SubVar} → (p ∈ₛ lookup x σ) → 
+--         toExp {V = V} x p (lookup x σ) ∈E σ 
+--toExp-in i with = {!!}
 
 sucVar : {V' : ℕ}(V : ℕ) → Fin (V + V') → Fin (V + suc V')
 sucVar zero n = suc n
@@ -203,14 +197,14 @@ data _⇝R_ {m : ℕ} : Env m → Env m → Set where
 ⇝R-mono (meta r x) = ⇝M-mono r
 
 ⇝M-in : ∀{m}{σ σ' : Subs m}{e e' : ExpM 0 m} → (σ , e) ⇝M (σ' , e') → e ∈E σ → e' ∈E σ'
-⇝M-in (var i) (mvar x₁) = {!!}
+⇝M-in (var i) (mvar x₁) = conv-in i
 ⇝M-in (bind0 x₁) x₂ = Z
-⇝M-in {σ = σ} (bindS x₁) (mvar {x = x} {p} x₂) = {!!}
--- S (mvar (subst (_∈ₛ_ (there p)) (upd-look x (updateS (S here) p) σ) (updS-var x₁ x₂)))
+⇝M-in {σ = σ} (bindS x₁) (mvar {x = x} {p} x₂) =  
+  S (mvar (subst (_∈ₛ_ (there p)) (upd-look x (updateS (S hole) p) σ) (look-in (look-S (updS-var x₂))) )) -- (updS-var x₁ x₂)))
 
---⇝R-in : ∀{m}{σ σ' : Subs m}{e e' : ExpM 0 m} → (σ , e) ⇝R (σ' , e') → e ∈E σ → e' ∈E σ'
---⇝R-in (lift x) i = ↦R-in x i
---⇝R-in (meta x x₁) (case i alt₀ i₁ altₛ i₂) =  ↦R-in x₁ (case ⇝M-in x i alt₀ emb-exp (⇝M-mono x) i₁ altₛ emb-exp (⇝M-mono x) i₂)
+⇝R-in : ∀{m}{σ σ' : Subs m}{e e' : ExpM 0 m} → (σ , e) ⇝R (σ' , e') → e ∈E σ → e' ∈E σ'
+⇝R-in (lift x) i = ↦R-in x i
+⇝R-in (meta x x₁) (case i alt₀ i₁ altₛ i₂) =  ↦R-in x₁ (case ⇝M-in x i alt₀ emb-exp (⇝M-mono x) i₁ altₛ emb-exp (⇝M-mono x) i₂)
 --
 --_⟪_⟫ : ∀{V M} → (e : ExpM V M) → (τ : Subs M) → ExpM V M
 --Z ⟪ ns ⟫ = Z
