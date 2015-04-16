@@ -298,6 +298,10 @@ sub-subs V (case i alt₀ i₁ altₛ i₂) i' = cong₃ case_alt₀_altₛ_ (su
 --lookupS hereS = {!!}
 --lookupS (thereS x₁) = {!!} 
 --      
+
+toExp-upd : ∀{p s s' M V}{x : Fin M} → (p ∈ₛ s') →  conv {V = V} x p s ≡ toExp x p (updateS s p s')
+toExp-upd {p}{x = x} i = cong (conv x p) (getSub-upd i)
+
 ⇝R-sound :  ∀{M}{τ : Subs M}{e e' : ExpM 0 M} → (σ : Subs M)
                     (i : e ∈E σ) → (r : (σ , e) ⇝R (τ , e')) →  
             (e ⟪ τ ⟫ ) ↦R (e' ⟪ τ ⟫ )
@@ -313,10 +317,11 @@ sub-subs V (case i alt₀ i₁ altₛ i₂) i' = cong₃ case_alt₀_altₛ_ (su
          eq2 = sub-subs 0 {σ = σ} e'' ef in 
        subst (λ x₂ → case (S ef) alt₀ e ⟪ σ ⟫ altₛ e'' ⟪ σ ⟫ ↦R x₂) 
            (trans eq1 eq2 ) r
-⇝R-sound σ (case i alt₀ i₁ altₛ i₂) (meta (bind0 {x = x}{p = p} x₁) (caseZ e' e'')) = 
+⇝R-sound σ (case (mvar {x = x}{p} x₁) alt₀ i₁ altₛ i₂) (meta (bind0 x₂) (caseZ e' e'')) = 
    let τ = update x (updateS Z p) σ 
        r = caseZ (e' ⟪ τ ⟫) (e'' ⟪ τ ⟫)
-   in subst (λ x₂ → case x₂ alt₀ e' ⟪ τ ⟫ altₛ e'' ⟪ τ ⟫ ↦R e' ⟪ τ ⟫) {!!} r
+   in subst (λ x₂ → case x₂ alt₀ e' ⟪ τ ⟫ altₛ e'' ⟪ τ ⟫ ↦R e' ⟪ τ ⟫) 
+               (trans (toExp-upd x₁) (cong (toExp x p) (upd-look x (updateS Z p) σ))) r
 ⇝R-sound σ (case i alt₀ i₁ altₛ i₂) (meta (bindS x₁) (caseS e e'')) = {!!}
 --⇝R-sound σ (case i alt₀ i₁ altₛ i₂) (meta (varZ x₁) (caseZ e' e'')) = 
 --         subst (λ x → case x alt₀ e' ⟪ σ ⟫ altₛ e'' ⟪ σ ⟫ ↦R (e' ⟪ σ ⟫)) (lookupZ x₁) 

@@ -136,6 +136,10 @@ getSub (there p) hole = Z
 getSub (there p) Z = Z
 getSub (there p) (S s) = getSub p s
 
+getSub-upd : ∀ {s' p s} → (p ∈ₛ s') → s ≡ getSub p (updateS s p s')
+getSub-upd here = refl
+getSub-upd (there i) = getSub-upd i
+
 getSub-in : ∀{p s} → (p ∈ₛ s) → s [ p ]:= getSub p s
 getSub-in here = here
 getSub-in (there i) = there (getSub-in i)
