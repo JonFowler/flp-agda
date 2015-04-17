@@ -313,7 +313,7 @@ toExp-upd {p}{x = x} i = cong (conv x p) (getSub-upd i)
 ⇝R-sound σ (case (mvar {x = x}{p} x₁) alt₀ i₁ altₛ i₂) (meta mvar (caseS e e'')) | S s | [ eq ]
    = let ef = conv x (there p) s
          r = caseS {ef = ef} (e ⟪ σ ⟫) (e'' ⟪ σ ⟫) 
-         eq1 = cong (sub 0 (e'' ⟪ σ ⟫)) (conv-subs (there p) s (getSub-up {p}{lookup x σ} (sym eq))) -- (conv-subs (there p)  {!getSub-up!})
+         eq1 = cong (sub 0 (e'' ⟪ σ ⟫)) (conv-subs (there p) s (getSub-up {p}{lookup x σ} (sym eq))) 
          eq2 = sub-subs 0 {σ = σ} e'' ef in 
        subst (λ x₂ → case (S ef) alt₀ e ⟪ σ ⟫ altₛ e'' ⟪ σ ⟫ ↦R x₂) 
            (trans eq1 eq2 ) r
@@ -322,7 +322,15 @@ toExp-upd {p}{x = x} i = cong (conv x p) (getSub-upd i)
        r = caseZ (e' ⟪ τ ⟫) (e'' ⟪ τ ⟫)
    in subst (λ x₂ → case x₂ alt₀ e' ⟪ τ ⟫ altₛ e'' ⟪ τ ⟫ ↦R e' ⟪ τ ⟫) 
                (trans (toExp-upd x₁) (cong (toExp x p) (upd-look x (updateS Z p) σ))) r
-⇝R-sound σ (case i alt₀ i₁ altₛ i₂) (meta (bindS x₁) (caseS e e'')) = {!!}
+⇝R-sound σ (case (mvar {x = x}{p} x₁) alt₀ i₁ altₛ i₂) (meta (bindS x₂) (caseS e e'')) = 
+   let τ = update x (updateS (S hole) p) σ 
+       r = caseS {ef = mvar x (there p)} (e ⟪ τ ⟫) (e'' ⟪ τ ⟫)
+       eq1 = toExp-upd x₁
+       eq2 = cong (toExp x p) (upd-look x (updateS (S hole) p) σ)
+       eq1' = cong (sub zero (e'' ⟪ τ ⟫)) {!!} -- (toExp-upd {there p} {s = S hole} {x = x}  {!!}) 
+       eq2' = sub-subs zero e'' (mvar x (there p))
+   in subst₂ (λ es er → case es alt₀ e ⟪ τ ⟫ altₛ e'' ⟪ τ ⟫ ↦R er) 
+                (trans eq1 eq2) (trans eq1' eq2') r 
 --⇝R-sound σ (case i alt₀ i₁ altₛ i₂) (meta (varZ x₁) (caseZ e' e'')) = 
 --         subst (λ x → case x alt₀ e' ⟪ σ ⟫ altₛ e'' ⟪ σ ⟫ ↦R (e' ⟪ σ ⟫)) (lookupZ x₁) 
 --           (caseZ (e' ⟪ σ ⟫) (e'' ⟪ σ ⟫))
