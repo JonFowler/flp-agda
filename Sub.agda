@@ -140,6 +140,14 @@ getSub-upd : ∀ {s' p s} → (p ∈ₛ s') → s ≡ getSub p (updateS s p s')
 getSub-upd here = refl
 getSub-upd (there i) = getSub-upd i
 
+getSub-there : ∀ {p s s'} → S s' ≡ getSub p s → s' ≡ getSub (there p) s
+getSub-there {here} {hole} ()
+getSub-there {here} {Z} ()
+getSub-there {here} {S s'} refl = refl
+getSub-there {there p} {hole} ()
+getSub-there {there p} {Z} ()
+getSub-there {there p} {S s} eq = getSub-there {p} {s} eq
+
 getSub-in : ∀{p s} → (p ∈ₛ s) → s [ p ]:= getSub p s
 getSub-in here = here
 getSub-in (there i) = there (getSub-in i)

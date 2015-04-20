@@ -150,7 +150,7 @@ hole [/ e ] = e
 (case H alt₀ x altₛ x₁) [/ e ] = case H [/ e ] alt₀ x altₛ x₁
   
 data _↦_ {M : ℕ} : ExpM 0 M → ExpM 0 M → Set where
-  prom : {e e' : ExpM 0 M} → e ↦ e' → (H : Cxt 0 M)  → H [/ e ] ↦ H [/ e' ]
+  prom : {e e' : ExpM 0 M} → e ↦R e' → (H : Cxt 0 M)  → H [/ e ] ↦ H [/ e' ]
 
 data _↦*_ {M : ℕ} : ExpM 0 M → ExpM 0 M → Set where
   [] : {e : ExpM 0 M} → e ↦* e
@@ -327,18 +327,13 @@ toExp-upd {p}{x = x} i = cong (conv x p) (getSub-upd i)
        r = caseS {ef = mvar x (there p)} (e ⟪ τ ⟫) (e'' ⟪ τ ⟫)
        eq1 = toExp-upd x₁
        eq2 = cong (toExp x p) (upd-look x (updateS (S hole) p) σ)
-       eq1' = cong (sub zero (e'' ⟪ τ ⟫)) {!!} -- (toExp-upd {there p} {s = S hole} {x = x}  {!!}) 
+       eq1'' = cong (toExp x (there p)) (upd-look x (updateS (S hole) p) σ)
+       eq1' = cong (sub zero (e'' ⟪ τ ⟫)) 
+              (trans (cong (conv x (there p)) (getSub-there {p} (getSub-upd x₁))) eq1'') 
        eq2' = sub-subs zero e'' (mvar x (there p))
    in subst₂ (λ es er → case es alt₀ e ⟪ τ ⟫ altₛ e'' ⟪ τ ⟫ ↦R er) 
                 (trans eq1 eq2) (trans eq1' eq2') r 
---⇝R-sound σ (case i alt₀ i₁ altₛ i₂) (meta (varZ x₁) (caseZ e' e'')) = 
---         subst (λ x → case x alt₀ e' ⟪ σ ⟫ altₛ e'' ⟪ σ ⟫ ↦R (e' ⟪ σ ⟫)) (lookupZ x₁) 
---           (caseZ (e' ⟪ σ ⟫) (e'' ⟪ σ ⟫))
---⇝R-sound σ (case i alt₀ i₁ altₛ i₂) (meta (varS {x = x}{p = p} x₁) (caseS e' e'')) = {!!}
---⇝R-sound σ (case i alt₀ i₁ altₛ i₂) (meta (bind0 x₁) (caseZ e' e'')) = {!!}
---⇝R-sound σ (case i alt₀ i₁ altₛ i₂) (meta (bindS x₁) (caseS e' e'')) = {!!}
-
-
+                
 
 --getOrd : ∀{m}{σ σ' : Subs m} → σ ≤s σ' → (x : Fin m) → lookup x σ ≤N lookup x σ'
 --getOrd (x ∷ o) zero = x
@@ -358,11 +353,37 @@ toExp-upd {p}{x = x} i = cong (conv x p) (getSub-upd i)
 ----repl τ is (case e alt₀ e₁ altₛ e₂) = case repl τ is e alt₀ repl τ is e₁ altₛ repl τ is e₂
 --
 --
---data _⇝_ {m : ℕ} : Env m → Env m → Set where
---  prom : {σ σ' : Subs m}{e e' : ExpM 0 m} → 
---         (r : (σ , e) ⇝R (σ' , e')) → (H : Cxt 0 m)  → 
---           (σ , H [/ e ]) ⇝ (σ' , H [/ e' ])
---           
+data _⇝_ {m : ℕ} : Env m → Env m → Set where
+  prom : {σ σ' : Subs m}{e e' : ExpM 0 m} → 
+         (r : (σ , e) ⇝R (σ' , e')) → (H : Cxt 0 m)  → 
+           (σ , H [/ e ]) ⇝ (σ' , H [/ e' ])
+           
+∈E-subj : ∀{V M}{e e' : ExpM V M}{e'' : ExpM (suc V) M}{σ : Subs M} → case e alt₀ e' altₛ e'' ∈E σ → e ∈E σ
+∈E-subj (case i alt₀ i₁ altₛ i₂) = i
+
+_⟪cxt|_⟫ : ∀{V M} → Cxt V M → Subs M → Cxt V M
+hole ⟪cxt| σ ⟫ = hole
+(case H alt₀ x altₛ x₁) ⟪cxt| σ ⟫ = case H ⟪cxt| σ ⟫ alt₀ x ⟪ σ ⟫ altₛ x₁ ⟪ σ ⟫
+
+cxt-sub :  ∀{V M}{e : ExpM V M}{σ : Subs M} → (H : Cxt V M) →  
+        H [/ e ] ⟪ σ ⟫ ≡ H ⟪cxt| σ ⟫ [/ e ⟪ σ ⟫ ]
+cxt-sub hole = refl
+cxt-sub {σ = σ} (case H alt₀ x altₛ x₁) = cong (λ h → case h alt₀ x ⟪ σ ⟫ altₛ x₁ ⟪ σ ⟫) (cxt-sub H)
+           
+
+⇝-red :  ∀{m}{σ σ' : Subs m}{e e' : ExpM 0 m}{H : Cxt 0 m} → 
+         (σ , H [/ e ]) ⇝ (σ' , H [/ e' ]) → (σ , e) ⇝R (σ' , e')
+⇝-red {e = e}{H = hole} r = {!e!}
+⇝-red {H = case H alt₀ x altₛ x₁} r = {!!}
+           
+⇝-sound :  ∀{M}{τ : Subs M}{e e' : ExpM 0 M} → (σ : Subs M)
+                    (i : e ∈E σ) → (r : (σ , e) ⇝ (τ , e')) →  
+            (e ⟪ τ ⟫ ) ↦ (e' ⟪ τ ⟫ )
+⇝-sound σ i (prom r hole) = prom (⇝R-sound σ i r) hole
+⇝-sound σ i (prom r (case H alt₀ x altₛ x₁)) with ⇝-sound σ (∈E-subj i) (prom r H)
+... | b = {!b!} 
+
+           
 --⇝-mono : ∀{m}{σ σ' : Subs m}{e e' : ExpM 0 m} → (σ , e) ⇝ (σ' , e') → σ ≤s σ'
 --⇝-mono (prom r H) = ⇝R-mono r
 --
