@@ -438,6 +438,7 @@ data _⇝*_ {V M : ℕ} : Env V M → Env V M → Set where
   [] : {s : Env V M} → s ⇝* s
   _∷_ : {σ σ' σ'' : Subs M}{e e' e'' : ExpM V M} → (r : (σ , e) ⇝ (σ' , e')) → (rs : (σ' , e') ⇝* (σ'' , e'')) → (σ , e) ⇝* (σ'' , e'')
   
+ 
 ⇝*-mono : ∀{M V}{σ σ' : Subs M}{e e' : ExpM V M} → (σ , e) ⇝* (σ' , e') → σ ≤s σ'
 ⇝*-mono [] = ≤s-refl
 ⇝*-mono (r ∷ rs) = ≤s-trans (⇝-mono r) (⇝*-mono rs)
@@ -448,17 +449,16 @@ data _⇝*_ {V M : ℕ} : Env V M → Env V M → Set where
 ⇝*-sound {τ = τ} σ i (_∷_ {σ = .σ}{σ'}{.τ}{e}{e'}{e''} r r₁) =  
   ↦-over {e = e}{e' = e'} (⇝*-mono r₁) (⇝-sound σ i r) ∷ ⇝*-sound σ' (⇝-in r i) r₁
   
-
   
  
 --⇝*-in : ∀{m}{σ σ' : Subs m}{e e' : ExpM 0 m} → (σ , e) ⇝* (σ' , e') → e ∈E σ → e' ∈E σ'
 --⇝*-in [] o = o
 --⇝*-in (r ∷ r₁) o = ⇝*-in r₁ (⇝-in r o)
 
---
 data _⇝!_ {V M : ℕ} : Env V M → Env V M → Set where
   fill : {σ σ' τ : Subs M}{e e' : ExpM V M} → Inps τ → (o : σ' ≤s τ) →
        (r : (σ , e) ⇝* (σ' , e')) →  (σ , e) ⇝! (τ ,  e')
+
        
 ⇝!-sound :  ∀{M}{τ : Subs M}{e e' : ExpM 0 M} → (σ : Subs M)
                     (i : e ∈E σ) → (σ , e) ⇝! (τ , e') → (e ⟪ τ ⟫ ) ↦* (e' ⟪ τ ⟫ )
