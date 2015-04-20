@@ -132,52 +132,54 @@ sub-in V (case e₁ alt₀ e₂ altₛ e₃) e'''' = case sub-in V e₁ e'''' al
 _[-_-] : {V M : ℕ} → ExpM (suc V) M → ExpM V M → ExpM V M
 _[-_-] = sub 0
   
-data _↦R_ {M : ℕ} : ExpM 0 M → ExpM 0 M → Set where
-  caseZ :  (e : ExpM 0 M) → (e' : ExpM 1 M) → case Z alt₀ e altₛ e' ↦R e
-  caseS : {ef : ExpM 0 M} → (e : ExpM 0 M) → (e' : ExpM 1 M)   
+data _↦R_ {V M : ℕ} : ExpM V M → ExpM V M → Set where
+  caseZ :  (e : ExpM V M) → (e' : ExpM (suc V) M) → case Z alt₀ e altₛ e' ↦R e
+  caseS : {ef : ExpM V M} → (e : ExpM V M) → (e' : ExpM (suc V) M)   
                 → case (S ef) alt₀ e altₛ e' ↦R e' [- ef -]
                 
 ↦R-in : ∀{M}{σ : Subs M}{e e' : ExpM 0 M} → e ↦R  e' → e ∈E σ → e' ∈E σ
 ↦R-in (caseZ e' e'') (case e₁ alt₀ e₂ altₛ e₃) = e₂
 ↦R-in (caseS e' e'') (case S e₁ alt₀ e₂ altₛ e₃) = sub-in 0 e₃ e₁
 
-data Cxt (V : ℕ) (M : ℕ)  : Set where
-  hole : Cxt V M
-  case_alt₀_altₛ_ : Cxt V M → ExpM V M → ExpM (suc V) M → Cxt V M
+--data Cxt (V : ℕ) (M : ℕ)  : Set where
+--  hole : Cxt V M
+--  case_alt₀_altₛ_ : Cxt V M → ExpM V M → ExpM (suc V) M → Cxt V M
   
-_[/_] : ∀{M V} → Cxt V M → ExpM V M → ExpM V M
-hole [/ e ] = e
-(case H alt₀ x altₛ x₁) [/ e ] = case H [/ e ] alt₀ x altₛ x₁
+--_[/_] : ∀{M V} → Cxt V M → ExpM V M → ExpM V M
+--hole [/ e ] = e
+--(case H alt₀ x altₛ x₁) [/ e ] = case H [/ e ] alt₀ x altₛ x₁
   
-data _↦_ {M : ℕ} : ExpM 0 M → ExpM 0 M → Set where
-  prom : {e e' : ExpM 0 M} → e ↦R e' → (H : Cxt 0 M)  → H [/ e ] ↦ H [/ e' ]
+data _↦_ {V M : ℕ} : ExpM V M → ExpM V M → Set where
+  pure : {e e' : ExpM V M} → e ↦R e' → e ↦ e' 
+  subj : {e e' e₀ : ExpM V M}{eₛ : ExpM (suc V) M} → e ↦ e' → 
+               case e alt₀ e₀ altₛ eₛ ↦ case e' alt₀ e₀ altₛ eₛ
 
-data _↦*_ {M : ℕ} : ExpM 0 M → ExpM 0 M → Set where
-  [] : {e : ExpM 0 M} → e ↦* e
-  _∷_ : {e e' e'' : ExpM 0 M} → e ↦ e' → e' ↦* e'' → e ↦* e''
+data _↦*_ {V M : ℕ} : ExpM V M → ExpM V M → Set where
+  [] : {e : ExpM V M} → e ↦* e
+  _∷_ : {e e' e'' : ExpM V M} → e ↦ e' → e' ↦* e'' → e ↦* e''
   
-Env : ℕ → Set
-Env m = Subs m × ExpM 0 m
+Env : ℕ → ℕ → Set
+Env V M = Subs M × ExpM V M
 
-data _⇝M_ {m : ℕ} : Env m → Env m → Set where
-  mvar : {σ : Subs m}{x : Fin m}{p : SubVar}{s : Sub} → let s = lookup x σ in  
+data _⇝M_ {V M : ℕ} : Env V M → Env V M → Set where
+  mvar : {σ : Subs M}{x : Fin M}{p : SubVar}{s : Sub} → let s = lookup x σ in  
           --   s [ p ]:= s' → 
              (σ , mvar x p) ⇝M (σ , toExp x p s)   --conv x p s')
 --  varS : {σ : Subs m}{x : Fin m}{s : Sub} → let s = lookup x σ in 
 --             {p : SubVar} → 
 --             s [ p ]:= just (S unit) → 
 --             (σ , mvar x p) ⇝M (σ , S (mvar x (there p)))
-  bind0 : {σ : Subs m}{x : Fin m} → let s = lookup x σ in 
+  bind0 : {σ : Subs M}{x : Fin M} → let s = lookup x σ in 
            {p : SubVar} → s [ p ]:= hole → 
           (σ , mvar x p) ⇝M (update x (updateS Z p) σ , Z) 
-  bindS : {σ : Subs m}{x : Fin m} → let s = lookup x σ in 
+  bindS : {σ : Subs M}{x : Fin M} → let s = lookup x σ in 
     {p : SubVar} → s [ p ]:= hole → 
     (σ , mvar x p) ⇝M (update x (updateS (S hole) p) σ , S (mvar x (there p)))
     
 
-data _⇝R_ {m : ℕ} : Env m → Env m → Set where
-  lift : {σ : Subs m}{e e' : ExpM 0 m} → e ↦R e' → (σ , e) ⇝R (σ , e')
-  meta : {σ σ' : Subs m}{e e' e'' e₀ : ExpM 0 m}{eₛ : ExpM 1 m} → (σ , e) ⇝M (σ' , e') → 
+data _⇝R_ {V M : ℕ} : Env V M → Env V M → Set where
+  lift : {σ : Subs M}{e e' : ExpM V M} → e ↦R e' → (σ , e) ⇝R (σ , e')
+  meta : {σ σ' : Subs M}{e e' e'' e₀ : ExpM V M}{eₛ : ExpM (suc V) M} → (σ , e) ⇝M (σ' , e') → 
                case e' alt₀ e₀ altₛ eₛ ↦R e'' → 
                (σ , case e alt₀ e₀ altₛ eₛ) ⇝R (σ' , e'')
                
@@ -186,12 +188,12 @@ data _⇝R_ {m : ℕ} : Env m → Env m → Set where
 ----embVar : ∀{V M}{σ σ' : Subs m}
 ----                                        
 --
-⇝M-mono : ∀{m}{σ σ' : Subs m}{e e' : ExpM 0 m} →   (σ , e) ⇝M (σ' , e') → σ ≤s σ'
+⇝M-mono : ∀{M V}{σ σ' : Subs M}{e e' : ExpM V M} →   (σ , e) ⇝M (σ' , e') → σ ≤s σ'
 ⇝M-mono mvar = ≤s-refl
 ⇝M-mono (bind0 {x = x} i) = upd-point x (upd-mono i)
 ⇝M-mono (bindS {x = x} i) = upd-point x (upd-mono i)
 
-⇝R-mono : ∀{m}{σ σ' : Subs m}{e e' : ExpM 0 m} → (σ , e) ⇝R (σ' , e') → σ ≤s σ'
+⇝R-mono : ∀{V M}{σ σ' : Subs M}{e e' : ExpM V M} → (σ , e) ⇝R (σ' , e') → σ ≤s σ'
 ⇝R-mono (lift x) = ≤s-refl
 ⇝R-mono (meta r x) = ⇝M-mono r
 
@@ -212,7 +214,7 @@ var x ⟪ ns ⟫ = var x
 mvar x p ⟪ ns ⟫ = toExp x p (lookup x ns) 
 (case e alt₀ e₁ altₛ e₂) ⟪ ns ⟫ =
       case e ⟪ ns ⟫ alt₀ e₁ ⟪ ns ⟫ altₛ e₂ ⟪ ns ⟫
-      
+     
 getSub-up : ∀{p s s'} → S s' ≡ getSub p s → s' ≡ getSub (there p) s 
 getSub-up {here} {hole} ()
 getSub-up {here} {Z} ()
@@ -232,6 +234,18 @@ subs-idem (S e) = cong S (subs-idem e)
 subs-idem (var x) = refl
 subs-idem {τ = τ} (mvar x p) = conv-subs p (getSub p (lookup x τ)) refl
 subs-idem (case e alt₀ e₁ altₛ e₂) = cong₃ case_alt₀_altₛ_ (subs-idem e) (subs-idem e₁) (subs-idem e₂)
+
+conv-over : ∀{V M} {τ : Subs M}{x : Fin M}(p : SubVar) → (s s' : Sub) → (s ≤ₛ s') → s' ≡ getSub p (lookup x τ) → conv {V = V} x p s' ≡ conv {V = V} x p s ⟪ τ ⟫
+conv-over {x = x} p hole s' o eq = cong (conv x p) eq
+conv-over p Z Z ≤Z eq = refl
+conv-over p (S s) (S s') (≤S o) eq = cong S (conv-over (there p) s s' o (getSub-up {p} eq))
+
+subs-over : ∀{V M} {σ τ : Subs M} → σ ≤s τ → (e : ExpM V M) → e ⟪ τ ⟫ ≡ (e ⟪ σ ⟫) ⟪ τ ⟫
+subs-over o Z = refl
+subs-over o (S e) = cong S (subs-over o e)
+subs-over o (var x) = refl
+subs-over {σ = σ}{τ}  o (mvar x p) = conv-over p (getSub p (lookup x σ)) (getSub p (lookup x τ)) (getSub-mono p (lookupI₂ x o)) refl -- conv-subs p (getSub p (lookup x σ)) ?
+subs-over o (case e alt₀ e₁ altₛ e₂) = cong₃ case_alt₀_altₛ_ (subs-over o e) (subs-over o e₁) (subs-over o e₂)
       
 --sub-eq : ∀{m v}{e : ExpM v m}{σ : Subs m} → {i i' : e ∈E σ} →  e ⟪ σ ⟫ ≡ e ⟪ σ ⟫
 --sub-eq {i = i} {i'} with ∈E-uniq i i'
@@ -282,9 +296,36 @@ sub-subs (suc V) (var (suc v)) i' with sub-subs V (var v) i'
 sub-subs V {σ = σ} (mvar x p) i' = sub-toExp p (lookup x σ) -- sub-natToExp (lookup x σ) p
 sub-subs V (case i alt₀ i₁ altₛ i₂) i' = cong₃ case_alt₀_altₛ_ (sub-subs V i i') (sub-subs V i₁ i') (sub-subs (suc V) i₂ i')
 --     
-↦R-subs : ∀{m}{e e' : ExpM 0 m} → (r : e ↦R e') → (σ : Subs m) →  e ⟪ σ ⟫ ↦R e' ⟪ σ ⟫
+↦R-subs : ∀{M V}{e e' : ExpM V M} → (r : e ↦R e') → (σ : Subs M) →  e ⟪ σ ⟫ ↦R e' ⟪ σ ⟫
 ↦R-subs (caseZ e e') σ = caseZ (e ⟪ σ ⟫) (e' ⟪ σ ⟫)
 ↦R-subs (caseS {ef = ef} e e'') σ  = subst (λ e' → (case S (ef ⟪ σ ⟫) alt₀ e ⟪ σ ⟫ altₛ (e'' ⟪ σ ⟫)) ↦R e' ) (sub-subs 0 e'' ef) (caseS (e ⟪ σ ⟫) (e'' ⟪ σ ⟫)) -- caseS ? {!caseS!}
+
+
+↦R-over : ∀{M}{e e' : ExpM 0 M}{σ σ' : Subs M} → 
+        (σ ≤s σ') → (e ⟪ σ ⟫ ↦R e' ⟪ σ ⟫ )  →  e ⟪ σ' ⟫ ↦R e' ⟪ σ' ⟫
+↦R-over {e = e}{e'}{σ}{σ'} o r = subst₂ (λ x x₁ → x ↦R x₁) 
+        (sym (subs-over o e)) (sym (subs-over o e')) (↦R-subs r σ')
+        
+        
+↦-subs : ∀{m}{e e' : ExpM 0 m} → (r : e ↦ e') → (σ : Subs m) →  e ⟪ σ ⟫ ↦ e' ⟪ σ ⟫
+↦-subs (pure x) σ = pure (↦R-subs x σ)
+↦-subs (subj r) σ = subj (↦-subs r σ)
+
+↦-over : ∀{M}{e e' : ExpM 0 M}{σ σ' : Subs M} → 
+        (σ ≤s σ') → (e ⟪ σ ⟫ ↦ e' ⟪ σ ⟫ )  →  e ⟪ σ' ⟫ ↦ e' ⟪ σ' ⟫
+↦-over {e = e}{e'}{σ}{σ'} o r = subst₂ (λ x x₁ → x ↦ x₁) 
+        (sym (subs-over o e)) (sym (subs-over o e')) (↦-subs r σ')
+
+↦*-subs : ∀{m}{e e' : ExpM 0 m} → (r : e ↦* e') → (σ : Subs m) →  e ⟪ σ ⟫ ↦* e' ⟪ σ ⟫
+↦*-subs [] σ = []
+↦*-subs (x ∷ r) σ = (↦-subs x σ) ∷ ↦*-subs r σ
+
+↦*-over : ∀{M}{e e' : ExpM 0 M}{σ σ' : Subs M} → 
+        (σ ≤s σ') → (e ⟪ σ ⟫ ↦* e' ⟪ σ ⟫ )  →  e ⟪ σ' ⟫ ↦* e' ⟪ σ' ⟫
+↦*-over {e = e}{e'}{σ}{σ'} o r = subst₂ (λ x x₁ → x ↦* x₁) 
+        (sym (subs-over o e)) (sym (subs-over o e')) (↦*-subs r σ')
+
+
 --
 ----case S ? alt₀ e ⟪ σ , i₁ ⟫ altₛ (e'' ⟪ σ , i₂ ⟫)) ↦ e'
 --
@@ -297,12 +338,11 @@ sub-subs V (case i alt₀ i₁ altₛ i₂) i' = cong₃ case_alt₀_altₛ_ (su
 --             (S (natToExp' {V = v} x (there p) (s) here)) ≡ natToExp' {V = v} x p s p'
 --lookupS hereS = {!!}
 --lookupS (thereS x₁) = {!!} 
---      
 
 toExp-upd : ∀{p s s' M V}{x : Fin M} → (p ∈ₛ s') →  conv {V = V} x p s ≡ toExp x p (updateS s p s')
 toExp-upd {p}{x = x} i = cong (conv x p) (getSub-upd i)
 
-⇝R-sound :  ∀{M}{τ : Subs M}{e e' : ExpM 0 M} → (σ : Subs M)
+⇝R-sound :  ∀{M V}{τ : Subs M}{e e' : ExpM V M} → (σ : Subs M)
                     (i : e ∈E σ) → (r : (σ , e) ⇝R (τ , e')) →  
             (e ⟪ τ ⟫ ) ↦R (e' ⟪ τ ⟫ )
 ⇝R-sound σ i (lift x) = ↦R-subs x σ
@@ -353,61 +393,78 @@ toExp-upd {p}{x = x} i = cong (conv x p) (getSub-upd i)
 ----repl τ is (case e alt₀ e₁ altₛ e₂) = case repl τ is e alt₀ repl τ is e₁ altₛ repl τ is e₂
 --
 --
-data _⇝_ {m : ℕ} : Env m → Env m → Set where
-  prom : {σ σ' : Subs m}{e e' : ExpM 0 m} → 
-         (r : (σ , e) ⇝R (σ' , e')) → (H : Cxt 0 m)  → 
-           (σ , H [/ e ]) ⇝ (σ' , H [/ e' ])
+data _⇝_ {V M : ℕ} : Env V M → Env V M → Set where
+  pure : {σ σ' : Subs M}{e e' : ExpM V M} → (r : (σ , e) ⇝R (σ' , e')) →
+             (σ , e) ⇝ (σ' , e')
+  subj : {σ σ' : Subs M}{e e' e₀ : ExpM V M}{eₛ : ExpM (suc V) M} → 
+         (r : (σ , e) ⇝ (σ' , e')) → 
+           (σ , case e alt₀ e₀ altₛ eₛ) ⇝ (σ' , case e' alt₀ e₀ altₛ eₛ)
            
 ∈E-subj : ∀{V M}{e e' : ExpM V M}{e'' : ExpM (suc V) M}{σ : Subs M} → case e alt₀ e' altₛ e'' ∈E σ → e ∈E σ
 ∈E-subj (case i alt₀ i₁ altₛ i₂) = i
 
-_⟪cxt|_⟫ : ∀{V M} → Cxt V M → Subs M → Cxt V M
-hole ⟪cxt| σ ⟫ = hole
-(case H alt₀ x altₛ x₁) ⟪cxt| σ ⟫ = case H ⟪cxt| σ ⟫ alt₀ x ⟪ σ ⟫ altₛ x₁ ⟪ σ ⟫
-
-cxt-sub :  ∀{V M}{e : ExpM V M}{σ : Subs M} → (H : Cxt V M) →  
-        H [/ e ] ⟪ σ ⟫ ≡ H ⟪cxt| σ ⟫ [/ e ⟪ σ ⟫ ]
-cxt-sub hole = refl
-cxt-sub {σ = σ} (case H alt₀ x altₛ x₁) = cong (λ h → case h alt₀ x ⟪ σ ⟫ altₛ x₁ ⟪ σ ⟫) (cxt-sub H)
+--_⟪cxt|_⟫ : ∀{V M} → Cxt V M → Subs M → Cxt V M
+--hole ⟪cxt| σ ⟫ = hole
+--(case H alt₀ x altₛ x₁) ⟪cxt| σ ⟫ = case H ⟪cxt| σ ⟫ alt₀ x ⟪ σ ⟫ altₛ x₁ ⟪ σ ⟫
+--
+--cxt-sub :  ∀{V M}{e : ExpM V M}{σ : Subs M} → (H : Cxt V M) →  
+--        H [/ e ] ⟪ σ ⟫ ≡ H ⟪cxt| σ ⟫ [/ e ⟪ σ ⟫ ]
+--cxt-sub hole = refl
+--cxt-sub {σ = σ} (case H alt₀ x altₛ x₁) = cong (λ h → case h alt₀ x ⟪ σ ⟫ altₛ x₁ ⟪ σ ⟫) (cxt-sub H)
            
 
-⇝-red :  ∀{m}{σ σ' : Subs m}{e e' : ExpM 0 m}{H : Cxt 0 m} → 
-         (σ , H [/ e ]) ⇝ (σ' , H [/ e' ]) → (σ , e) ⇝R (σ' , e')
-⇝-red {e = e}{H = hole} r = {!e!}
-⇝-red {H = case H alt₀ x altₛ x₁} r = {!!}
+--⇝-red :  ∀{m}{σ σ' : Subs m}{e e' : ExpM 0 m} → 
+--         (σ , H [/ e ]) ⇝ (σ' , H [/ e' ]) → (σ , e) ⇝R (σ' , e')
+--⇝-red {e = e}{H = hole} r = {!e!}
+--⇝-red {H = case H alt₀ x altₛ x₁} r = {!!}
            
-⇝-sound :  ∀{M}{τ : Subs M}{e e' : ExpM 0 M} → (σ : Subs M)
+⇝-sound :  ∀{M V}{τ : Subs M}{e e' : ExpM V M} → (σ : Subs M)
                     (i : e ∈E σ) → (r : (σ , e) ⇝ (τ , e')) →  
             (e ⟪ τ ⟫ ) ↦ (e' ⟪ τ ⟫ )
-⇝-sound σ i (prom r hole) = prom (⇝R-sound σ i r) hole
-⇝-sound σ i (prom r (case H alt₀ x altₛ x₁)) with ⇝-sound σ (∈E-subj i) (prom r H)
-... | b = {!b!} 
+⇝-sound σ i (pure r) = pure (⇝R-sound σ i r)
+⇝-sound σ (case i alt₀ i₁ altₛ i₂) (subj r) = subj (⇝-sound σ i r)
 
            
---⇝-mono : ∀{m}{σ σ' : Subs m}{e e' : ExpM 0 m} → (σ , e) ⇝ (σ' , e') → σ ≤s σ'
---⇝-mono (prom r H) = ⇝R-mono r
+⇝-mono : ∀{M V}{σ σ' : Subs M}{e e' : ExpM V M} → (σ , e) ⇝ (σ' , e') → σ ≤s σ'
+⇝-mono (pure r) = ⇝R-mono r
+⇝-mono (subj r) = ⇝-mono r
+
+⇝-in : ∀{m}{σ σ' : Subs m}{e e' : ExpM 0 m} → (σ , e) ⇝ (σ' , e') → e ∈E σ → e' ∈E σ'
+⇝-in (pure r) x = ⇝R-in r x
+⇝-in (subj r) (case x alt₀ x₁ altₛ x₂) = 
+     case ⇝-in r x alt₀ emb-exp (⇝-mono r) x₁ altₛ emb-exp (⇝-mono r) x₂
 --
---⇝-in : ∀{m}{σ σ' : Subs m}{e e' : ExpM 0 m} → (σ , e) ⇝ (σ' , e') → e ∈E σ → e' ∈E σ'
---⇝-in (prom r hole) o = ⇝R-in r o
---⇝-in (prom r (case H alt₀ e'' altₛ e''')) (case o alt₀ o₁ altₛ o₂) = 
---           case ⇝-in (prom r H) o alt₀ emb-exp (⇝R-mono r) o₁ altₛ emb-exp (⇝R-mono r) o₂
---
---data _⇝*_ {m : ℕ} : Env m → Env m → Set where
---  [] : {s : Env m} → s ⇝* s
---  _∷_ : {s s' s'' : Env m} → (r : s ⇝ s') → (rs : s' ⇝* s'') → s ⇝* s''
---  
---⇝*-mono : ∀{m}{σ σ' : Subs m}{e e' : ExpM 0 m} → (σ , e) ⇝* (σ' , e') → σ ≤s σ'
---⇝*-mono [] = ≤s-refl
---⇝*-mono (r ∷ rs) = ≤s-trans (⇝-mono r) (⇝*-mono rs)
---  
+data _⇝*_ {V M : ℕ} : Env V M → Env V M → Set where
+  [] : {s : Env V M} → s ⇝* s
+  _∷_ : {σ σ' σ'' : Subs M}{e e' e'' : ExpM V M} → (r : (σ , e) ⇝ (σ' , e')) → (rs : (σ' , e') ⇝* (σ'' , e'')) → (σ , e) ⇝* (σ'' , e'')
+  
+⇝*-mono : ∀{M V}{σ σ' : Subs M}{e e' : ExpM V M} → (σ , e) ⇝* (σ' , e') → σ ≤s σ'
+⇝*-mono [] = ≤s-refl
+⇝*-mono (r ∷ rs) = ≤s-trans (⇝-mono r) (⇝*-mono rs)
+  
+⇝*-sound :  ∀{M}{τ : Subs M}{e e' : ExpM 0 M} → (σ : Subs M)
+                    (i : e ∈E σ) → (σ , e) ⇝* (τ , e') → (e ⟪ τ ⟫ ) ↦* (e' ⟪ τ ⟫ )
+⇝*-sound τ i [] = []
+⇝*-sound {τ = τ} σ i (_∷_ {σ = .σ}{σ'}{.τ}{e}{e'}{e''} r r₁) =  
+  ↦-over {e = e}{e' = e'} (⇝*-mono r₁) (⇝-sound σ i r) ∷ ⇝*-sound σ' (⇝-in r i) r₁
+  
+
+  
+ 
 --⇝*-in : ∀{m}{σ σ' : Subs m}{e e' : ExpM 0 m} → (σ , e) ⇝* (σ' , e') → e ∈E σ → e' ∈E σ'
 --⇝*-in [] o = o
 --⇝*-in (r ∷ r₁) o = ⇝*-in r₁ (⇝-in r o)
+
 --
---data _⇝!_ {m : ℕ} : Env m → Env m → Set where
---  fill : {σ τ : Subs m}{e : ExpM 0 m}{s : Env m} → VecI Nohole τ → (o : σ ≤s τ) →
---       (r : s ⇝* (σ , e)) →  s ⇝! (τ ,  e)
---       
+data _⇝!_ {V M : ℕ} : Env V M → Env V M → Set where
+  fill : {σ σ' τ : Subs M}{e e' : ExpM V M} → Inps τ → (o : σ' ≤s τ) →
+       (r : (σ , e) ⇝* (σ' , e')) →  (σ , e) ⇝! (τ ,  e')
+       
+⇝!-sound :  ∀{M}{τ : Subs M}{e e' : ExpM 0 M} → (σ : Subs M)
+                    (i : e ∈E σ) → (σ , e) ⇝! (τ , e') → (e ⟪ τ ⟫ ) ↦* (e' ⟪ τ ⟫ )
+⇝!-sound σ i (fill {e = e}{e'} x o r) =  ↦*-over {e = e}{e' = e'} o (⇝*-sound σ i r)
+
+       
 --inp! : ∀{m}{τ : Subs m} {e : ExpM 0 m}{s : Env m} → s ⇝! (τ , e) → VecI Nohole τ
 --inp! {s = proj₁ , proj₂} (fill x o x₁) = x
 --

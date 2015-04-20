@@ -32,18 +32,12 @@ data Sub : Set where
 Subs : ℕ → Set
 Subs = Vec Sub 
  
-data Nohole : Sub → Set where
-  Z : Nohole Z
-  S : {n : Sub} → Nohole n → Nohole (S n)
+data Inp : Sub → Set where
+  Z : Inp Z
+  S : {n : Sub} → Inp n → Inp (S n)
   
-Noholes : ∀{M} → Subs M → Set
-Noholes σ = VecI Nohole σ
-  
-Input : Set
-Input = Σ Sub Nohole
-  
-Inputs : ℕ → Set
-Inputs m = Vec Input m
+Inps : ∀{M} → Subs M → Set
+Inps σ = VecI Inp σ
   
 data SubVar : Set where
   here : SubVar 
@@ -132,8 +126,8 @@ emb-var (≤S s₁) (there i) = there (emb-var s₁ i)
 
 getSub : (p : SubVar) → (s : Sub) → Sub
 getSub here s = s
-getSub (there p) hole = Z
-getSub (there p) Z = Z
+getSub (there p) hole = hole
+getSub (there p) Z = hole 
 getSub (there p) (S s) = getSub p s
 
 getSub-upd : ∀ {s' p s} → (p ∈ₛ s') → s ≡ getSub p (updateS s p s')
@@ -151,6 +145,12 @@ getSub-there {there p} {S s} eq = getSub-there {p} {s} eq
 getSub-in : ∀{p s} → (p ∈ₛ s) → s [ p ]:= getSub p s
 getSub-in here = here
 getSub-in (there i) = there (getSub-in i)
+
+getSub-mono : ∀ {s s'} → (p : SubVar) → s ≤ₛ s' → getSub p s ≤ₛ getSub p s'
+getSub-mono here o = o
+getSub-mono (there p) ≤hole = ≤hole
+getSub-mono (there p) ≤Z = ≤hole
+getSub-mono (there p) (≤S o) = getSub-mono p o
 
 getSub-eq : ∀{p s s'} → s [ p ]:= s' → s' ≡ getSub p s
 getSub-eq here = refl
