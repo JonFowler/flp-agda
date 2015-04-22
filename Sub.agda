@@ -109,6 +109,13 @@ upd-mono : ∀{s s'}{p : SubVar} → s [ p ]:= hole → s ≤ₛ updateS s' p s
 upd-mono here = ≤hole
 upd-mono (there a) = ≤S (upd-mono a)
 
+updateS-point : ∀{r s s'}(p : SubVar) → (s ≤ₛ s') → updateS s p r ≤ₛ updateS s' p r
+updateS-point here o = o
+updateS-point {hole} (there p) o = ≤hole
+updateS-point {Z} (there p) o = ≤hole
+updateS-point {S r} (there p) o = ≤S (updateS-point p o)
+
+
 ≤ₛ-trans-refl : {s s' : Sub}{o : s ≤ₛ s'} → o ≡ ≤ₛ-trans ≤ₛ-refl o
 ≤ₛ-trans-refl {o = ≤hole} = refl
 ≤ₛ-trans-refl {o = ≤Z} = refl
