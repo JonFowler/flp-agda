@@ -58,7 +58,7 @@ data _∈ₛ_ : SubVar → Sub → Set where
 updateS : Sub → SubVar → Sub → Sub
 updateS s here s' = s 
 updateS s (there p) (S n) = S (updateS s p n)
-updateS s  _ _ = s 
+updateS s (there p) a  = hole
 
 data _[_]:=_ : (s : Sub) → SubVar → Sub → Set where 
   here : {s : Sub} → s [ here ]:= s 
@@ -100,6 +100,11 @@ upd-point : ∀{m}{σ : Subs m}{f : Sub → Sub} (x : Fin m) → (lookup x σ �
 upd-point {σ = x ∷ σ} zero o = o ∷ ≤s-refl
 upd-point {σ = s ∷ σ} (suc x) o = ≤ₛ-refl ∷ upd-point x o 
 
+≤s-upd : ∀{m}{σ τ : Subs m}{f : Sub → Sub} (x : Fin m) → (f (lookup x σ) ≤ₛ (lookup x τ)) → σ ≤s τ →
+                   update x f σ ≤s τ 
+≤s-upd zero s (x ∷ o) = s ∷ o
+≤s-upd (suc x) s (x₁ ∷ o) = x₁ ∷ ≤s-upd x s o
+
 upd-mono : ∀{s s'}{p : SubVar} → s [ p ]:= hole → s ≤ₛ updateS s' p s
 upd-mono here = ≤hole
 upd-mono (there a) = ≤S (upd-mono a)
@@ -133,6 +138,12 @@ getSub here s = s
 getSub (there p) hole = hole
 getSub (there p) Z = hole 
 getSub (there p) (S s) = getSub p s
+
+≤ₛ-upd : ∀{s s'} → (p : SubVar) → s ≤ₛ s' → updateS (getSub p s') p s ≤ₛ s'
+≤ₛ-upd here o = ≤ₛ-refl
+≤ₛ-upd (there p) ≤hole = ≤hole
+≤ₛ-upd (there p) ≤Z = ≤hole
+≤ₛ-upd (there p) (≤S o) = ≤S (≤ₛ-upd p o)
 
 getSub-upd : ∀ {s' p s} → (p ∈ₛ s') → s ≡ getSub p (updateS s p s')
 getSub-upd here = refl

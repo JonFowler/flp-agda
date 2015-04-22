@@ -44,11 +44,16 @@ lookupI₂ : ∀{n}{A B : Set}{P : A → B → Set}{As : Vec A n}{Bs : Vec B n}
 lookupI₂ zero (x ∷ as) = x
 lookupI₂ (suc i) (x ∷ as) = lookupI₂ i as
 
---updateI : ∀{n γ}{A : Set γ}{As : Vec (Set γ) n} → (i : Fin n) → 
---          (f : lookup i As → A) → VecI As → VecI (insert i A As)
---updateI zero f (x ∷ as) = f x ∷ as
---updateI (suc i) f (x ∷ as) = x ∷ updateI i f as
---
+updateI : ∀{n}{A : Set}{P : A → Set}{As : Vec A n}{a' : A} → (i : Fin n) → 
+          (f : P (lookup i As) → P a') → VecI P As → VecI P (insert i a' As)
+updateI zero f (x ∷ as) = f x ∷ as
+updateI (suc i) f (x ∷ as) = x ∷ updateI i f as
+
+updateI₂ : ∀{n}{A B : Set}{P : A → B → Set}{As : Vec A n}{Bs : Vec B n}{a : A}{b : B} → (i : Fin n) → 
+          (f : P (lookup i As) (lookup i Bs) → P a b) → VecI₂ P As Bs → VecI₂ P (insert i a As) (insert i b Bs)
+updateI₂ zero f (x ∷ as) = f x ∷ as
+updateI₂ (suc i) f (x ∷ as) = x ∷ updateI₂ i f as
+
 --insertI : ∀{n γ}{A : Set γ}{As : Vec (Set γ) n} → (i : Fin n) → 
 --          A → VecI As → VecI (insert i A As)
 --insertI i a = updateI i (const a) 

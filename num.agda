@@ -357,7 +357,13 @@ subj-eq refl = refl
 ⇝RF-complete {e = case var x alt₀ e₁ altₛ e₂} o i ()
 ⇝RF-complete {σ = σ}{τ}{case mvar x p alt₀ e₁ altₛ e₂} o i r with getSub p (lookup x τ) | inspect (getSub p) (lookup x τ) | getSub p (lookup x σ) | inspect (getSub p) (lookup x σ) | getSub-mono p (lookupI₂ x o)
 ⇝RF-complete {V} {M} {σ} {τ} {case mvar x p alt₀ e₁ altₛ e₂} o i () | hole | eq | .hole | eq' | ≤hole
-⇝RF-complete {V} {M} {σ} {τ} {case mvar x p alt₀ e₁ altₛ e₂} o i (caseZ .(e₁ ⟪ τ ⟫) .(e₂ ⟪ τ ⟫)) | Z | eq | .hole | Reveal_is_.[ eq' ] | ≤hole = {!!}
+⇝RF-complete {V} {M} {σ} {τ} {case mvar x p alt₀ e₁ altₛ e''} o (case mvar x₁ alt₀ i₁ altₛ i₂) (caseZ .(e₁ ⟪ τ ⟫) .(e'' ⟪ τ ⟫)) | Z | Reveal_is_.[ eq ] | .hole | Reveal_is_.[ eq' ] | ≤hole =
+  let σ' = update x (updateS Z p) σ 
+      r = meta (bindZ {x = x} (subst (λ x₂ → lookup x σ [ p ]:= x₂) eq' (getSub-in x₁))) (caseZ e₁ e'')
+      s = lookup x σ
+      s' = lookup x τ
+      le = ≤s-upd x (subst (λ x₂ → updateS x₂ p s ≤ₛ s') eq (≤ₛ-upd p (lookupI₂ x o))) o
+  in fill le r
 ⇝RF-complete {V} {M} {σ} {τ} {case mvar x p alt₀ e₁ altₛ e₂} o i (caseS .(e₁ ⟪ τ ⟫) .(e₂ ⟪ τ ⟫)) | S s | eq | .hole | eq' | ≤hole = {!!}
 ⇝RF-complete {V} {M} {σ} {τ} {case mvar x p alt₀ e₁ altₛ e₂} o i (caseZ .(e₁ ⟪ τ ⟫) .(e₂ ⟪ τ ⟫)) | .Z | eq | .Z | Reveal_is_.[ eq' ] | ≤Z = 
   let r = meta (mvar {σ = σ}{x = x}{p = p}) (subst (λ x₁ → case x₁ alt₀ e₁ altₛ e₂ ↦R e₁) (sym (cong (conv x p) eq')) (caseZ e₁ e₂))
