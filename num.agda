@@ -137,9 +137,9 @@ Env : ℕ → ℕ → Set
 Env V M = Subs M × Exp V M
 
 data _⇝M_ {V M : ℕ} : Red (Env V M) where
-  mvar : {σ : Subs M}{x : Fin M}{p : SubVar}{s : Sub} → let s = lookup x σ in  
+  mvar : {σ : Subs M}{x : Fin M}{p : SubVar} → let s = lookup x σ in  
              (σ , mvar x p) ⇝M (σ , toExp x p s)   --conv x p s')
-  bind0 : {σ : Subs M}{x : Fin M} → let s = lookup x σ in 
+  bindZ : {σ : Subs M}{x : Fin M} → let s = lookup x σ in 
            {p : SubVar} → s [ p ]:= hole → 
           (σ , mvar x p) ⇝M (update x (updateS Z p) σ , Z) 
   bindS : {σ : Subs M}{x : Fin M} → let s = lookup x σ in 
@@ -153,16 +153,25 @@ data _⇝R_ {V M : ℕ} : Red (Env V M) where
                case e' alt₀ e₀ altₛ eₛ ↦R e'' → 
                (σ , case e alt₀ e₀ altₛ eₛ) ⇝R (σ' , e'')
                
+_⟪_⟫ : ∀{V M} → (e : Exp V M) → (τ : Subs M) → Exp V M
+Z ⟪ ns ⟫ = Z
+S e ⟪ ns ⟫ = S (e ⟪ ns ⟫)
+var x ⟪ ns ⟫ = var x
+mvar x p ⟪ ns ⟫ = toExp x p (lookup x ns) 
+(case e alt₀ e₁ altₛ e₂) ⟪ ns ⟫ =
+      case e ⟪ ns ⟫ alt₀ e₁ ⟪ ns ⟫ altₛ e₂ ⟪ ns ⟫
+ 
+               
 data Fill {V M : ℕ}(P : Env V M → Env V M → Set) : Env V M → Env V M → Set where
-  fill : {σ σ' τ : Subs M}{e e' : Exp V M} → (o : σ' ≤s τ) →
-       (r : P (σ , e) (σ' , e')) →  Fill P (σ , e) (τ ,  e')
+  fill : {σ σ' τ : Subs M}{e e' : Exp V M} → (o : σ' ≤s τ) → 
+       (r : P (σ , e) (σ' , e')) →  Fill P (σ , e) (τ ,  e' ⟪ τ ⟫)
 
 _⇝RF_  : ∀{V M} → Red (Env V M)
 _⇝RF_ = Fill _⇝R_
 
 ⇝M-mono : ∀{M V}{σ σ' : Subs M}{e e' : Exp V M} →   (σ , e) ⇝M (σ' , e') → σ ≤s σ'
 ⇝M-mono mvar = ≤s-refl
-⇝M-mono (bind0 {x = x} i) = upd-point x (upd-mono i)
+⇝M-mono (bindZ {x = x} i) = upd-point x (upd-mono i)
 ⇝M-mono (bindS {x = x} i) = upd-point x (upd-mono i)
 
 ⇝R-mono : ∀{V M}{σ σ' : Subs M}{e e' : Exp V M} → (σ , e) ⇝R (σ' , e') → σ ≤s σ'
@@ -171,7 +180,7 @@ _⇝RF_ = Fill _⇝R_
 
 ⇝M-in : ∀{V M}{σ σ' : Subs M}{e e' : Exp V M} → (σ , e) ⇝M (σ' , e') → e ∈E σ → e' ∈E σ'
 ⇝M-in mvar (mvar x₁) = toExp-in x₁ 
-⇝M-in (bind0 x₁) x₂ = Z
+⇝M-in (bindZ x₁) x₂ = Z
 ⇝M-in {σ = σ} (bindS x₁) (mvar {x = x} {p} x₂) =  
   S (mvar (subst (_∈ₛ_ (there p)) (upd-look x (updateS (S hole) p) σ) (look-in (look-S (updS-var x₂))) )) -- (updS-var x₁ x₂)))
 
@@ -179,14 +188,7 @@ _⇝RF_ = Fill _⇝R_
 ⇝R-in (lift x) i = ↦R-in x i
 ⇝R-in (meta x x₁) (case i alt₀ i₁ altₛ i₂) =  ↦R-in x₁ (case ⇝M-in x i alt₀ emb-exp (⇝M-mono x) i₁ altₛ emb-exp (⇝M-mono x) i₂)
 
-_⟪_⟫ : ∀{V M} → (e : Exp V M) → (τ : Subs M) → Exp V M
-Z ⟪ ns ⟫ = Z
-S e ⟪ ns ⟫ = S (e ⟪ ns ⟫)
-var x ⟪ ns ⟫ = var x
-mvar x p ⟪ ns ⟫ = toExp x p (lookup x ns) 
-(case e alt₀ e₁ altₛ e₂) ⟪ ns ⟫ =
-      case e ⟪ ns ⟫ alt₀ e₁ ⟪ ns ⟫ altₛ e₂ ⟪ ns ⟫
-     
+    
 getSub-up : ∀{p s s'} → S s' ≡ getSub p s → s' ≡ getSub (there p) s 
 getSub-up {here} {hole} ()
 getSub-up {here} {Z} ()
@@ -313,14 +315,14 @@ sub-subs V (case i alt₀ i₁ altₛ i₂) i' = cong₃ case_alt₀_altₛ_ (su
 
 Sound : (V M : ℕ) → Red (Env V M) → Red (Exp V M) → Set
 Sound V M P Q =  {σ τ : Subs M}{e e' : Exp V M} → 
-                    (i : e ∈E σ) → P (σ , e) (τ , e') → Q (e ⟪ τ ⟫ ) (e' ⟪ τ ⟫ )
+                    (i : e ∈E σ) → P (σ , e) (τ , e') → Q (e ⟪ τ ⟫ ) e'
                     
-Complete' : (V M : ℕ) → Red (Env V M) → Red (Exp V M) → Set
-Complete' V M P Q = {σ τ : Subs M}{e e' es es' : Exp V M} →  (σ ≤s τ) →
-                    (i : e ∈E σ) → es ≡ e ⟪ τ ⟫ → es' ≡ e' ⟪ τ ⟫ → Q es es' → P (σ , e) (τ , e')
+Complete : (V M : ℕ) → Red (Env V M) → Red (Exp V M) → Set
+Complete V M P Q = {σ τ : Subs M}{e e' es es' : Exp V M} →  (σ ≤s τ) →
+                    (i : e ∈E σ) → Q (e ⟪ τ ⟫) e' → P (σ , e) (τ , e')
                     
 Correct : (V M : ℕ) → Red (Env V M) → Red (Exp V M) → Set
-Correct V M P Q  = (Sound V M P Q) × (Complete' V M P Q)
+Correct V M P Q  = (Sound V M P Q) × (Complete V M P Q)
 
 toExp-upd : ∀{p s s' M V}{x : Fin M} → (p ∈ₛ s') →  conv {V = V} x p s ≡ toExp x p (updateS s p s')
 toExp-upd {p}{x = x} i = cong (conv x p) (getSub-upd i)
@@ -337,58 +339,89 @@ subj-eq : ∀{V M}{e e' e1 e1' : Exp V M}{e'' e1'' : Exp (suc V) M} →
         _≡_ {A = Exp V M} (case e alt₀ e' altₛ e'') (case e1 alt₀ e1' altₛ e1'') → e ≡ e1
 subj-eq refl = refl
 
-⇝RF-complete : ∀{V M} → Complete' V M (_⇝RF_) (_↦R_)
-⇝RF-complete {e = Z} o i () eq2 (caseZ e₁ e'')
-⇝RF-complete {e = S e} o i () eq2 (caseZ e₁ e'')
-⇝RF-complete {e = var x} o i () eq2 (caseZ e₁ e'')
-⇝RF-complete {τ = τ} {e = mvar x p} o i eq1 eq2 (caseZ e₁ e'') with getSub p (lookup x τ)
-⇝RF-complete {V} {M} {σ} {τ} {mvar x p} o i () eq2 (caseZ e₁ e'') | hole
-⇝RF-complete {V} {M} {σ} {τ} {mvar x p} o i () eq2 (caseZ e₁ e'') | Z
-⇝RF-complete {V} {M} {σ} {τ} {mvar x p} o i () eq2 (caseZ e₁ e'') | S b
-⇝RF-complete {e = case Z alt₀ e₁ altₛ e₂} {e' = e'} o i eq1 eq2 (caseZ e₃ e'') = 
-     fill o (lift (subst (λ z → case Z alt₀ e₁ altₛ e₂ ↦R z) {!!} (caseZ e₁ e₂)))
-⇝RF-complete {e = case S e alt₀ e₁ altₛ e₂} o i () eq2 (caseZ e₃ e'')
-⇝RF-complete {e = case var x alt₀ e₁ altₛ e₂} o i () eq2 (caseZ e₃ e'')
-⇝RF-complete {e = case mvar x p alt₀ e₁ altₛ e₂} o i eq1 eq2 (caseZ e₃ e'') = {!!}
-⇝RF-complete {e = case case e alt₀ e₁ altₛ e₂ alt₀ e₃ altₛ e₄} o i () eq2 (caseZ e₅ e'')
-⇝RF-complete {e = Z} o i () eq2 (caseS e₁ e'')
-⇝RF-complete {e = S e} o i () eq2 (caseS e₁ e'')
-⇝RF-complete {e = var x} o i () eq2 (caseS e₁ e'')
-⇝RF-complete {τ = τ} {e = mvar x p} o i eq1 eq2 (caseS e₁ e'') with getSub p (lookup x τ)
-⇝RF-complete {V} {M} {σ} {τ} {mvar x p} o i () eq2 (caseS e₁ e'') | hole
-⇝RF-complete {V} {M} {σ} {τ} {mvar x p} o i () eq2 (caseS e₁ e'') | Z
-⇝RF-complete {V} {M} {σ} {τ} {mvar x p} o i () eq2 (caseS e₁ e'') | S b
-⇝RF-complete {e = case e alt₀ e₁ altₛ e₂} o i eq1 eq2 (caseS e₃ e'') = {!!}
+⇝RF-complete : ∀{V M} → Complete V M (_⇝RF_) (_↦R_)
+⇝RF-complete {e = Z} o i ()
+⇝RF-complete {e = S e} o i ()
+⇝RF-complete {e = var x} o i ()
+⇝RF-complete {τ = τ}{e = mvar x p} o i r with getSub p (lookup x τ)
+⇝RF-complete {V} {M} {σ} {τ} {mvar x p} o i () | hole
+⇝RF-complete {V} {M} {σ} {τ} {mvar x p} o i () | Z
+⇝RF-complete {V} {M} {σ} {τ} {mvar x p} o i () | S b
+⇝RF-complete {e = case Z alt₀ e₁ altₛ e₂}  o i (caseZ ._ ._) = 
+  fill o (lift (caseZ e₁ e₂))
+⇝RF-complete {σ = σ}{τ} {e = case S e alt₀ e₁ altₛ e₂} o i (caseS ._ ._) = 
+  let r = (caseS {ef = e} e₁ e₂) 
+      eq = cong (λ x → τ , x) (sym (sub-subs zero e₂ e))   
+  in subst (λ x →  (σ , case S e alt₀ e₁ altₛ e₂) ⇝RF x) eq (fill {e' = e₂ [- e -]} o (lift r))
+--  fill o (lift {!caseS!})
+⇝RF-complete {e = case var x alt₀ e₁ altₛ e₂} o i ()
+⇝RF-complete {σ = σ}{τ}{case mvar x p alt₀ e₁ altₛ e₂} o i r with getSub p (lookup x τ) | inspect (getSub p) (lookup x τ) | getSub p (lookup x σ) | inspect (getSub p) (lookup x σ) | getSub-mono p (lookupI₂ x o)
+⇝RF-complete {V} {M} {σ} {τ} {case mvar x p alt₀ e₁ altₛ e₂} o i () | hole | eq | .hole | eq' | ≤hole
+⇝RF-complete {V} {M} {σ} {τ} {case mvar x p alt₀ e₁ altₛ e₂} o i (caseZ .(e₁ ⟪ τ ⟫) .(e₂ ⟪ τ ⟫)) | Z | eq | .hole | Reveal_is_.[ eq' ] | ≤hole = {!!}
+⇝RF-complete {V} {M} {σ} {τ} {case mvar x p alt₀ e₁ altₛ e₂} o i (caseS .(e₁ ⟪ τ ⟫) .(e₂ ⟪ τ ⟫)) | S s | eq | .hole | eq' | ≤hole = {!!}
+⇝RF-complete {V} {M} {σ} {τ} {case mvar x p alt₀ e₁ altₛ e₂} o i (caseZ .(e₁ ⟪ τ ⟫) .(e₂ ⟪ τ ⟫)) | .Z | eq | .Z | Reveal_is_.[ eq' ] | ≤Z = 
+  let r = meta (mvar {σ = σ}{x = x}{p = p}) (subst (λ x₁ → case x₁ alt₀ e₁ altₛ e₂ ↦R e₁) (sym (cong (conv x p) eq')) (caseZ e₁ e₂))
+  in fill o r
+⇝RF-complete {V} {M} {σ} {τ} {case mvar x p alt₀ e₁ altₛ e₂} o i (caseS .(e₁ ⟪ τ ⟫) .(e₂ ⟪ τ ⟫)) | S s' | Reveal_is_.[ eq ] | S s'' | Reveal_is_.[ eq' ] | ≤S o' = 
+  let ef = conv x (there p) s'' 
+      r  =  (caseS {ef = ef} e₁ e₂)
+      r' = meta (mvar {σ = σ}{x = x}{p = p}) (subst (λ x₁ → case x₁ alt₀ e₁ altₛ e₂ ↦R e₂ [- ef -]) (sym (cong (conv x p) eq')) r)
+      r'' = fill {P = _⇝R_} {e' = e₂ [- ef -]} o r'
+      eq' =  sym (conv-over (there p) s'' s' o' (getSub-there {p = p} (sym eq)))
+  in subst (λ x₁ →  (σ , case mvar x p alt₀ e₁ altₛ e₂) ⇝RF (τ , x₁)) (trans (sym (sub-subs zero e₂ ef)) (cong (sub 0 (e₂ ⟪ τ ⟫)) eq')) r'' 
+⇝RF-complete {e = case case e alt₀ e₁ altₛ e₂ alt₀ e₃ altₛ e₄} o i ()
 
-⇝R-sound : ∀{V M} → Sound V M (_⇝R_) (_↦R_)
-⇝R-sound {σ = σ} i (lift x) = ↦R-subs x σ
-⇝R-sound {σ = σ} (case (mvar{x = x}{p} x₁) alt₀ i₁ altₛ i₂) (meta mvar x') 
-     with getSub p (lookup x σ) | inspect (getSub p) (lookup x σ)
-⇝R-sound {σ = σ} (case mvar x₁ alt₀ i₁ altₛ i₂) (meta mvar ()) | hole | eq 
-⇝R-sound {σ = σ} (case mvar x₁ alt₀ i₁ altₛ i₂) (meta mvar (caseZ e e')) | Z | eq = caseZ (e ⟪ σ ⟫) (e' ⟪ σ ⟫)
-⇝R-sound {σ = σ} (case (mvar {x = x}{p} x₁) alt₀ i₁ altₛ i₂) (meta mvar (caseS e e'')) | S s | [ eq ]
-   = let ef = conv x (there p) s
-         r = caseS {ef = ef} (e ⟪ σ ⟫) (e'' ⟪ σ ⟫) 
-         eq1 = cong (sub 0 (e'' ⟪ σ ⟫)) (conv-subs (there p) s (getSub-up {p}{lookup x σ} (sym eq))) 
-         eq2 = sub-subs 0 {σ = σ} e'' ef in 
-       subst (λ x₂ → case (S ef) alt₀ e ⟪ σ ⟫ altₛ e'' ⟪ σ ⟫ ↦R x₂) 
-           (trans eq1 eq2 ) r
-⇝R-sound {σ = σ} (case (mvar {x = x}{p} x₁) alt₀ i₁ altₛ i₂) (meta (bind0 x₂) (caseZ e' e'')) = 
-   let τ = update x (updateS Z p) σ 
-       r = caseZ (e' ⟪ τ ⟫) (e'' ⟪ τ ⟫)
-   in subst (λ x₂ → case x₂ alt₀ e' ⟪ τ ⟫ altₛ e'' ⟪ τ ⟫ ↦R e' ⟪ τ ⟫) 
-               (trans (toExp-upd x₁) (cong (toExp x p) (upd-look x (updateS Z p) σ))) r
-⇝R-sound {σ = σ} (case (mvar {x = x}{p} x₁) alt₀ i₁ altₛ i₂) (meta (bindS x₂) (caseS e e'')) = 
-   let τ = update x (updateS (S hole) p) σ 
-       r = caseS {ef = mvar x (there p)} (e ⟪ τ ⟫) (e'' ⟪ τ ⟫)
-       eq1 = toExp-upd x₁
-       eq2 = cong (toExp x p) (upd-look x (updateS (S hole) p) σ)
-       eq1'' = cong (toExp x (there p)) (upd-look x (updateS (S hole) p) σ)
-       eq1' = cong (sub zero (e'' ⟪ τ ⟫)) 
-              (trans (cong (conv x (there p)) (getSub-there {p} (getSub-upd x₁))) eq1'') 
-       eq2' = sub-subs zero e'' (mvar x (there p))
-   in subst₂ (λ es er → case es alt₀ e ⟪ τ ⟫ altₛ e'' ⟪ τ ⟫ ↦R er) 
-                (trans eq1 eq2) (trans eq1' eq2') r 
+--⇝RF-complete {e = Z} o i () eq2 (caseZ e₁ e'')
+--⇝RF-complete {e = S e} o i () eq2 (caseZ e₁ e'')
+--⇝RF-complete {e = var x} o i () eq2 (caseZ e₁ e'')
+--⇝RF-complete {τ = τ} {e = mvar x p} o i eq1 eq2 (caseZ e₁ e'') with getSub p (lookup x τ)
+--⇝RF-complete {V} {M} {σ} {τ} {mvar x p} o i () eq2 (caseZ e₁ e'') | hole
+--⇝RF-complete {V} {M} {σ} {τ} {mvar x p} o i () eq2 (caseZ e₁ e'') | Z
+--⇝RF-complete {V} {M} {σ} {τ} {mvar x p} o i () eq2 (caseZ e₁ e'') | S b
+--⇝RF-complete {e = case Z alt₀ e₁ altₛ e₂} {e' = e'} o i eq1 eq2 (caseZ e₃ e'') =  {!!} -- fill {e' = e'} o (lift {!!})
+--  --   fill o  (lift (subst (λ z → case Z alt₀ e₁ altₛ e₂ ↦R z) {!!} (caseZ e₁ e₂)))
+--⇝RF-complete {e = case S e alt₀ e₁ altₛ e₂} o i () eq2 (caseZ e₃ e'')
+--⇝RF-complete {e = case var x alt₀ e₁ altₛ e₂} o i () eq2 (caseZ e₃ e'')
+--⇝RF-complete {e = case mvar x p alt₀ e₁ altₛ e₂} o i eq1 eq2 (caseZ e₃ e'') = {!!}
+--⇝RF-complete {e = case case e alt₀ e₁ altₛ e₂ alt₀ e₃ altₛ e₄} o i () eq2 (caseZ e₅ e'')
+--⇝RF-complete {e = Z} o i () eq2 (caseS e₁ e'')
+--⇝RF-complete {e = S e} o i () eq2 (caseS e₁ e'')
+--⇝RF-complete {e = var x} o i () eq2 (caseS e₁ e'')
+--⇝RF-complete {τ = τ} {e = mvar x p} o i eq1 eq2 (caseS e₁ e'') with getSub p (lookup x τ)
+--⇝RF-complete {V} {M} {σ} {τ} {mvar x p} o i () eq2 (caseS e₁ e'') | hole
+--⇝RF-complete {V} {M} {σ} {τ} {mvar x p} o i () eq2 (caseS e₁ e'') | Z
+--⇝RF-complete {V} {M} {σ} {τ} {mvar x p} o i () eq2 (caseS e₁ e'') | S b
+--⇝RF-complete {e = case e alt₀ e₁ altₛ e₂} o i eq1 eq2 (caseS e₃ e'') = {!!}
+
+--⇝R-sound : ∀{V M} → Sound V M (_⇝R_) (_↦R_)
+--⇝R-sound {σ = σ} i (lift x) = ↦R-subs x σ
+--⇝R-sound {σ = σ} (case (mvar{x = x}{p} x₁) alt₀ i₁ altₛ i₂) (meta mvar x') 
+--     with getSub p (lookup x σ) | inspect (getSub p) (lookup x σ)
+--⇝R-sound {σ = σ} (case mvar x₁ alt₀ i₁ altₛ i₂) (meta mvar ()) | hole | eq 
+--⇝R-sound {σ = σ} (case mvar x₁ alt₀ i₁ altₛ i₂) (meta mvar (caseZ e e')) | Z | eq = caseZ (e ⟪ σ ⟫) (e' ⟪ σ ⟫)
+--⇝R-sound {σ = σ} (case (mvar {x = x}{p} x₁) alt₀ i₁ altₛ i₂) (meta mvar (caseS e e'')) | S s | [ eq ]
+--   = let ef = conv x (there p) s
+--         r = caseS {ef = ef} (e ⟪ σ ⟫) (e'' ⟪ σ ⟫) 
+--         eq1 = cong (sub 0 (e'' ⟪ σ ⟫)) (conv-subs (there p) s (getSub-up {p}{lookup x σ} (sym eq))) 
+--         eq2 = sub-subs 0 {σ = σ} e'' ef in 
+--       subst (λ x₂ → case (S ef) alt₀ e ⟪ σ ⟫ altₛ e'' ⟪ σ ⟫ ↦R x₂) 
+--           (trans eq1 eq2 ) r
+--⇝R-sound {σ = σ} (case (mvar {x = x}{p} x₁) alt₀ i₁ altₛ i₂) (meta (bind0 x₂) (caseZ e' e'')) = 
+--   let τ = update x (updateS Z p) σ 
+--       r = caseZ (e' ⟪ τ ⟫) (e'' ⟪ τ ⟫)
+--   in subst (λ x₂ → case x₂ alt₀ e' ⟪ τ ⟫ altₛ e'' ⟪ τ ⟫ ↦R e' ⟪ τ ⟫) 
+--               (trans (toExp-upd x₁) (cong (toExp x p) (upd-look x (updateS Z p) σ))) r
+--⇝R-sound {σ = σ} (case (mvar {x = x}{p} x₁) alt₀ i₁ altₛ i₂) (meta (bindS x₂) (caseS e e'')) = 
+--   let τ = update x (updateS (S hole) p) σ 
+--       r = caseS {ef = mvar x (there p)} (e ⟪ τ ⟫) (e'' ⟪ τ ⟫)
+--       eq1 = toExp-upd x₁
+--       eq2 = cong (toExp x p) (upd-look x (updateS (S hole) p) σ)
+--       eq1'' = cong (toExp x (there p)) (upd-look x (updateS (S hole) p) σ)
+--       eq1' = cong (sub zero (e'' ⟪ τ ⟫)) 
+--              (trans (cong (conv x (there p)) (getSub-there {p} (getSub-upd x₁))) eq1'') 
+--       eq2' = sub-subs zero e'' (mvar x (there p))
+--   in subst₂ (λ es er → case es alt₀ e ⟪ τ ⟫ altₛ e'' ⟪ τ ⟫ ↦R er) 
+--                (trans eq1 eq2) (trans eq1' eq2') r 
                 
 
 --getOrd : ∀{m}{σ σ' : Subs m} → σ ≤s σ' → (x : Fin m) → lookup x σ ≤N lookup x σ'
@@ -435,9 +468,9 @@ data _⇝_ {V M : ℕ} : Env V M → Env V M → Set where
 --⇝-red {H = case H alt₀ x altₛ x₁} r = {!!}
            
 
-⇝-sound : ∀{V M} → Sound V M (_⇝_) (_↦_)
-⇝-sound i (pure r) = pure (⇝R-sound i r)
-⇝-sound (case i alt₀ i₁ altₛ i₂) (subj r) = subj (⇝-sound i r)
+--⇝-sound : ∀{V M} → Sound V M (_⇝_) (_↦_)
+--⇝-sound i (pure r) = pure (⇝R-sound i r)
+--⇝-sound (case i alt₀ i₁ altₛ i₂) (subj r) = subj (⇝-sound i r)
 
            
 ⇝-mono : ∀{M V}{σ σ' : Subs M}{e e' : Exp V M} → (σ , e) ⇝ (σ' , e') → σ ≤s σ'
@@ -458,10 +491,10 @@ data _⇝*_ {V M : ℕ} : Red (Env V M) where
 ⇝*-mono [] = ≤s-refl
 ⇝*-mono (r ∷ rs) = ≤s-trans (⇝-mono r) (⇝*-mono rs)
   
-⇝*-sound :  ∀{V M} → Sound V M (_⇝*_) (_↦*_)
-⇝*-sound i [] = []
-⇝*-sound {τ = τ} i (_∷_ {σ = σ}{σ'}{.τ}{e}{e'}{e''} r r₁) =  
-  ↦-over {e = e}{e' = e'} (⇝*-mono r₁) (⇝-sound i r) ∷ ⇝*-sound (⇝-in r i) r₁
+--⇝*-sound :  ∀{V M} → Sound V M (_⇝*_) (_↦*_)
+--⇝*-sound i [] = []
+--⇝*-sound {τ = τ} i (_∷_ {σ = σ}{σ'}{.τ}{e}{e'}{e''} r r₁) =  
+--  ↦-over {e = e}{e' = e'} (⇝*-mono r₁) (⇝-sound i r) ∷ ⇝*-sound (⇝-in r i) r₁
   
   
  
@@ -472,15 +505,10 @@ data _⇝*_ {V M : ℕ} : Red (Env V M) where
 _⇝!_ : ∀{V M : ℕ} → Env V M → Env V M → Set
 _⇝!_ = Fill _⇝*_ 
 
+--⇝!-sound :  ∀{V M} → Sound V M _⇝!_ (_↦*_)
+--⇝!-sound i (fill {τ = τ} {e = e}{e'} o r) =  let r' = ↦*-over {e = e}{e' = e'} o (⇝*-sound i r)
+--  in  subst (λ x → (e ⟪ τ ⟫) ↦* x) (subs-idem e') r'
 
-
---data _⇝!_ {V M : ℕ} : Env V M → Env V M → Set where
---  fill : {σ σ' τ : Subs M}{e e' : Exp V M} → Inps τ → (o : σ' ≤s τ) →
---       (r : (σ , e) ⇝* (σ' , e')) →  (σ , e) ⇝! (τ ,  e')
-
-       
-⇝!-sound :  ∀{V M} → Sound V M (_⇝!_) (_↦*_)
-⇝!-sound i (fill {e = e}{e'} o r) =  ↦*-over {e = e}{e' = e'} o (⇝*-sound i r)
 
        
 --inp! : ∀{m}{τ : Subs m} {e : Exp 0 m}{s : Env m} → s ⇝! (τ , e) → VecI Nohole τ
