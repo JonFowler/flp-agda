@@ -300,9 +300,6 @@ sub-subs V (case i alt₀ i₁ altₛ i₂) i' = cong₃ case_alt₀_altₛ_ (su
         (sym (subs-over o e)) (sym (subs-over o e')) (↦*-subs r σ')
 
 
---
-----case S ? alt₀ e ⟪ σ , i₁ ⟫ altₛ (e'' ⟪ σ , i₂ ⟫)) ↦ e'
---
 --lookupZ : ∀{m v}{s : Sub}{p p' : SubVar}{x : Fin m} →  s [ p' ]:= just Z → 
 --              Z ≡ natToExp' {V = v} x p s p'
 --lookupZ hereZ = refl
@@ -318,7 +315,7 @@ Sound V M P Q =  {σ τ : Subs M}{e e' : Exp V M} →
                     (i : e ∈E σ) → P (σ , e) (τ , e') → Q (e ⟪ τ ⟫ ) e'
                     
 Complete : (V M : ℕ) → Red (Env V M) → Red (Exp V M) → Set
-Complete V M P Q = {σ τ : Subs M}{e e' es es' : Exp V M} →  (σ ≤s τ) →
+Complete V M P Q = {σ τ : Subs M}{e e' : Exp V M} →  (σ ≤s τ) →
                     (i : e ∈E σ) → Q (e ⟪ τ ⟫) e' → P (σ , e) (τ , e')
                     
 Correct : (V M : ℕ) → Red (Env V M) → Red (Exp V M) → Set
@@ -386,28 +383,6 @@ subj-eq refl = refl
   in subst (λ x₁ →  (σ , case mvar x p alt₀ e₁ altₛ e₂) ⇝RF (τ , x₁)) (trans (sym (sub-subs zero e₂ ef)) (cong (sub 0 (e₂ ⟪ τ ⟫)) eq')) r'' 
 ⇝RF-complete {e = case case e alt₀ e₁ altₛ e₂ alt₀ e₃ altₛ e₄} o i ()
 
---⇝RF-complete {e = Z} o i () eq2 (caseZ e₁ e'')
---⇝RF-complete {e = S e} o i () eq2 (caseZ e₁ e'')
---⇝RF-complete {e = var x} o i () eq2 (caseZ e₁ e'')
---⇝RF-complete {τ = τ} {e = mvar x p} o i eq1 eq2 (caseZ e₁ e'') with getSub p (lookup x τ)
---⇝RF-complete {V} {M} {σ} {τ} {mvar x p} o i () eq2 (caseZ e₁ e'') | hole
---⇝RF-complete {V} {M} {σ} {τ} {mvar x p} o i () eq2 (caseZ e₁ e'') | Z
---⇝RF-complete {V} {M} {σ} {τ} {mvar x p} o i () eq2 (caseZ e₁ e'') | S b
---⇝RF-complete {e = case Z alt₀ e₁ altₛ e₂} {e' = e'} o i eq1 eq2 (caseZ e₃ e'') =  {!!} -- fill {e' = e'} o (lift {!!})
---  --   fill o  (lift (subst (λ z → case Z alt₀ e₁ altₛ e₂ ↦R z) {!!} (caseZ e₁ e₂)))
---⇝RF-complete {e = case S e alt₀ e₁ altₛ e₂} o i () eq2 (caseZ e₃ e'')
---⇝RF-complete {e = case var x alt₀ e₁ altₛ e₂} o i () eq2 (caseZ e₃ e'')
---⇝RF-complete {e = case mvar x p alt₀ e₁ altₛ e₂} o i eq1 eq2 (caseZ e₃ e'') = {!!}
---⇝RF-complete {e = case case e alt₀ e₁ altₛ e₂ alt₀ e₃ altₛ e₄} o i () eq2 (caseZ e₅ e'')
---⇝RF-complete {e = Z} o i () eq2 (caseS e₁ e'')
---⇝RF-complete {e = S e} o i () eq2 (caseS e₁ e'')
---⇝RF-complete {e = var x} o i () eq2 (caseS e₁ e'')
---⇝RF-complete {τ = τ} {e = mvar x p} o i eq1 eq2 (caseS e₁ e'') with getSub p (lookup x τ)
---⇝RF-complete {V} {M} {σ} {τ} {mvar x p} o i () eq2 (caseS e₁ e'') | hole
---⇝RF-complete {V} {M} {σ} {τ} {mvar x p} o i () eq2 (caseS e₁ e'') | Z
---⇝RF-complete {V} {M} {σ} {τ} {mvar x p} o i () eq2 (caseS e₁ e'') | S b
---⇝RF-complete {e = case e alt₀ e₁ altₛ e₂} o i eq1 eq2 (caseS e₃ e'') = {!!}
-
 --⇝R-sound : ∀{V M} → Sound V M (_⇝R_) (_↦R_)
 --⇝R-sound {σ = σ} i (lift x) = ↦R-subs x σ
 --⇝R-sound {σ = σ} (case (mvar{x = x}{p} x₁) alt₀ i₁ altₛ i₂) (meta mvar x') 
@@ -464,8 +439,25 @@ data _⇝_ {V M : ℕ} : Env V M → Env V M → Set where
          (r : (σ , e) ⇝ (σ' , e')) → 
            (σ , case e alt₀ e₀ altₛ eₛ) ⇝ (σ' , case e' alt₀ e₀ altₛ eₛ)
            
+
 ∈E-subj : ∀{V M}{e e' : Exp V M}{e'' : Exp (suc V) M}{σ : Subs M} → case e alt₀ e' altₛ e'' ∈E σ → e ∈E σ
 ∈E-subj (case i alt₀ i₁ altₛ i₂) = i
+
+_⇝F_ : ∀{V M} → Red (Env V M)
+_⇝F_ = Fill _⇝_
+
+⇝F-complete : ∀{V M} → Complete V M (_⇝F_) (_↦_)
+⇝F-complete {e = Z} o i (pure ())
+⇝F-complete {e = S e} o i (pure ())
+⇝F-complete {e = var x} o i (pure ())
+⇝F-complete {τ = τ}{e = mvar x p} o i r with getSub p (lookup x τ)
+⇝F-complete {V} {M} {σ} {τ} {mvar x p} o i (pure ()) | hole
+⇝F-complete {V} {M} {σ} {τ} {mvar x p} o i (pure ()) | Z 
+⇝F-complete {V} {M} {σ} {τ} {mvar x p} o i (pure ()) | S c 
+⇝F-complete {e = case e alt₀ e₁ altₛ e₂} o i (pure x) with ⇝RF-complete o i x
+⇝F-complete {V} {M} {σ} {τ} {case e alt₀ e₁ altₛ e₂} o i (pure x) | fill o₁ r = fill o₁ (pure r)
+⇝F-complete {e = case e alt₀ e' altₛ e''} o (case i alt₀ i₁ altₛ i₂) (subj r) with ⇝F-complete o i r
+⇝F-complete {V} {M} {σ} {τ} {case e alt₀ e'' altₛ e'''} o (case i alt₀ i₁ altₛ i₂) (subj r) | fill o₁ r₁ = fill o₁ (subj r₁)
 
 --_⟪cxt|_⟫ : ∀{V M} → Cxt V M → Subs M → Cxt V M
 --hole ⟪cxt| σ ⟫ = hole
@@ -519,6 +511,15 @@ data _⇝*_ {V M : ℕ} : Red (Env V M) where
 
 _⇝!_ : ∀{V M : ℕ} → Env V M → Env V M → Set
 _⇝!_ = Fill _⇝*_ 
+
+⇝!-complete : ∀{V M} → Complete V M (_⇝!_) (_↦*_)
+⇝!-complete o i [] = fill o []
+⇝!-complete {τ = τ} o i (_∷_ {e' = e'} x r) with ⇝F-complete o i x 
+⇝!-complete {τ = τ} o i (_∷_  x r) | fill {e' = e'} o₁ x' with ⇝!-complete {e = e'} o₁ (⇝-in x' i) r
+⇝!-complete o₂ i (x ∷ r) | fill o₁ x' | fill o r₁ = fill o (x' ∷ r₁)
+
+--with ⇝!-complete o₁ {!!} r 
+--... | b = {!f!}
 
 --⇝!-sound :  ∀{V M} → Sound V M _⇝!_ (_↦*_)
 --⇝!-sound i (fill {τ = τ} {e = e}{e'} o r) =  let r' = ↦*-over {e = e}{e' = e'} o (⇝*-sound i r)
