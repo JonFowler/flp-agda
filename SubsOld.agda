@@ -1,4 +1,4 @@
-module Subs.old where
+module SubsOld where
 
 open import FAlg 
 open import PL
