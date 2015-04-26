@@ -18,32 +18,28 @@ rext :  {A B : Set} {f₁ : A → B} {f₂ : A → B} →
                                        f₁ ≡ f₂ → ((x : A) → f₁ x ≡ f₂ x) 
 rext refl x = refl
 
-
-data Val (A : Set) : Set where
-  Z : Val A
-  S : A → Val A
-
-data SubG (A : Set) : Set where
-  val : Val (SubG A) → SubG A
-  hole : A → SubG A
-  
-Sub : Set
-Sub = SubG Unit
+data Sub : Set where
+  Z : Sub
+  S : Sub → Sub
+  hole : Sub
   
 Subs : ℕ → Set
 Subs = Vec Sub
   
 data Holes : Sub → Set where
-  hole : Holes (hole unit)
-  inS : {s : Sub} → (h : Holes s) → Holes (val (S s))
+  hole : Holes hole
+  inS : {s : Sub} → (h : Holes s) → Holes (S s)
   
-outS : ∀{h} → Holes (val (S h)) → Holes h
+outS : ∀{h} → Holes (S h) → Holes h
 outS (inS h) = h
   
 Binding : Sub → Set
 Binding s = Holes s → Sub 
 
-outValS : {b c : Sub} → val (S b) ≡ val (S c) → b ≡ c
+Bindings : ∀{n} → Subs n → Set
+Bindings = VecI Binding
+
+outValS : {b c : Sub} → S b ≡ S c → b ≡ c
 outValS refl = refl
 
 --decSub : (a b : Sub) → Dec (a ≡ b)
@@ -78,35 +74,39 @@ outValS refl = refl
 --  ≤inS : ∀{s s'} → s ≤ₛ s' → val (S s) ≤ₛ val (S s')
   
 updateSub : (s : Sub) → Binding s → Sub
-updateSub (val Z) f = val Z
-updateSub (val (S x)) f = val (S (updateSub x (λ h → f (inS h))))
-updateSub (hole unit) f = f hole
+updateSub Z f = Z
+updateSub (S x) f = S (updateSub x (f ∘ inS))
+updateSub hole f = f hole
+
+embedHole : ∀{s} → (b : Binding s) → (p : Holes s) → hole ≡ b p → Holes (updateSub s b)
+embedHole b hole e = subst Holes e hole
+embedHole b (inS p) e = inS (embedHole (b ∘ inS) p e)
 
 b-uniq : ∀{s}{b b' : Binding s} → updateSub s b ≡ updateSub s b' → b ≡ b'
-b-uniq {val Z} eq = ext (λ ())
-b-uniq {val (S s)}{b}{b'} eq = let r = b-uniq {s} (outValS eq) in ext (λ {(inS h) → cong-app r h}) 
-b-uniq {hole unit}{b}{b'} eq = ext x
-  where x : (h : Holes (hole unit)) → b h ≡ b' h
+b-uniq {Z} eq = ext (λ ())
+b-uniq {S s}{b}{b'} eq = let r = b-uniq {s} (outValS eq) in ext (λ {(inS h) → cong-app r h}) 
+b-uniq {hole}{b}{b'} eq = ext x
+  where x : (h : Holes hole) → b h ≡ b' h
         x hole = eq
 
 _∶b_ : ∀{s}(b : Binding s) → Binding (updateSub s b) → Binding s
-_∶b_ {val Z} b b' ()
-_∶b_ {val (S s)} b b' = (b ∘ inS) ∶b (b' ∘ inS) ∘ outS
-_∶b_ {hole unit} b b' hole = updateSub (b hole) b'
+_∶b_ {Z} b b' ()
+_∶b_ {S s} b b' = (b ∘ inS) ∶b (b' ∘ inS) ∘ outS
+_∶b_ {hole} b b' hole = updateSub (b hole) b'
 
 compb : ∀{s}(b : Binding s)(b' : Binding (updateSub s b)) → updateSub (updateSub s b) b' ≡ updateSub s (b ∶b b')
-compb {val Z} b b' = refl 
-compb {val (S s)} b b' = cong (val ∘ S) (compb (b ∘ inS) (b' ∘ inS)) 
-compb {hole unit} b b' = refl
+compb {Z} b b' = refl 
+compb {S s} b b' = cong S (compb (b ∘ inS) (b' ∘ inS)) 
+compb {hole} b b' = refl
 
 _⇨_ : Sub → Sub → Set
 s ⇨ s' = Σ (Binding s) (λ b → s' ≡ updateSub s b)
 
 ⇨-refl : ∀{s} → s ⇨ s
-⇨-refl {val Z} = (λ ()) , refl
-⇨-refl {val (S x)} with ⇨-refl {x}
-...| (b , eq) = b ∘ outS , cong (val ∘ S) eq
-⇨-refl {hole unit} = (λ x → hole unit) , refl
+⇨-refl {Z} = (λ ()) , refl
+⇨-refl {S x} with ⇨-refl {x}
+...| (b , eq) = b ∘ outS , cong S eq
+⇨-refl {hole} = (λ x → hole) , refl
 
 _∶⇨_ : ∀{s s' s''} → s ⇨ s' → s' ⇨ s'' → s ⇨ s'' 
 (b , refl) ∶⇨ (b' , refl) = b ∶b b' , compb b b'
@@ -116,12 +116,12 @@ _∶⇨_ : ∀{s s' s''} → s ⇨ s' → s' ⇨ s'' → s ⇨ s''
 ⇨-uniq (b , refl) (.b , eq) | refl with eq 
 ⇨-uniq (b , refl) (.b , eq) | refl | refl = refl 
 
-toVal : {s : Sub} → Holes s → (b : Binding s) → SubG (Holes (updateSub s b))
-toVal hole b with b hole 
-toVal hole b | val Z = val Z
-toVal hole b | val (S x) = val (S (toVal {!!} {!b!}))
-toVal hole b | hole unit = hole hole
-toVal (inS h) b = {!!} 
+--toVal : {s : Sub} → Holes s → (b : Binding s) → Sub (Holes (updateSub s b))
+--toVal hole b with b hole 
+--toVal hole b | val Z = val Z
+--toVal hole b | val (S x) = val (S ({!!}))
+--toVal hole b | hole unit = hole hole
+--toVal (inS h) b = {!!} 
 
 --⇨-equiv : ∀{s s'} → s ⇨ s' → s ≤ₛ s'
 --⇨-equiv {val Z} (proj₁ , refl) = ≤Z
@@ -176,4 +176,4 @@ toVal (inS h) b = {!!}
 --  
 --Bind : Sub → Set
 --Bind s = Σ Sub (Minimal _≤ₛ_ (_<ₛ_ s))
-  
+

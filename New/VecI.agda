@@ -35,6 +35,11 @@ zipI : ∀{n}{A : Set}{P : A → Set} → (as : Vec A n) → VecI P as → Vec (
 zipI [] [] = []
 zipI (a ∷ as) (p ∷ ps) = (a , p) ∷ zipI as ps
 
+zipWithI : ∀{n}{A B : Set}{P : A → Set}(f : (a : A) → P a → B) → (as : Vec A n) → VecI P as 
+         → Vec B n
+zipWithI f [] [] = []
+zipWithI f (a ∷ as) (p ∷ ps) = f a p ∷ zipWithI f as ps
+
 lookupI : ∀{n}{A : Set}{P : A → Set}{As : Vec A n} → (i : Fin n) → VecI P As → P (lookup i As)
 lookupI zero (x ∷ as) = x
 lookupI (suc i) (x ∷ as) = lookupI i as
