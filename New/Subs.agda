@@ -73,6 +73,37 @@ data _≤ₛ_ : Sub → Sub → Set where
   ≤Z : Z ≤ₛ Z 
   ≤inS : ∀{s s'} → s ≤ₛ s' → S s ≤ₛ S s'
   
+lookupP : ∀{s s'} (p : Holes s) → s ≤ₛ s' → Sub
+lookupP hole (≤hole s) = s
+lookupP (inS p) (≤inS s) = lookupP p s
+
+updateP : {s : Sub} → (p : Holes s) → (s' : Sub)  → Sub
+updateP  hole s' = s'
+updateP  (inS p) s' = S (updateP p s')
+
+updatePhole : ∀{s} (p : Holes s) → updateP {s} p hole ≡ s 
+updatePhole hole = refl
+updatePhole (inS p) = cong S (updatePhole p)
+
+partUpdate : {s s'' : Sub} → (p : Holes s) → (s' : Sub) → 
+              (le : s ≤ₛ s'') → s' ≤ₛ lookupP p le → updateP p s' ≤ₛ s''
+partUpdate hole s' (≤hole s'') le' = le'
+partUpdate (inS p) s' (≤inS le) le' = ≤inS (partUpdate p s' le le')
+
+updateH : ∀{s} → (p : Holes s) → Holes (updateP p (S hole)) 
+updateH hole = inS hole
+updateH (inS p) = inS (updateH p)
+
+joinPos : ∀{s s'} → (p : Holes s) → (p' : Holes s') → 
+     Holes (updateP p s') 
+joinPos hole p' = p'
+joinPos (inS p) p' = inS (joinPos p p')
+
+SPos : ∀{s} → (p : Holes s) → Holes (updateP p (S hole)) 
+SPos hole = inS hole
+SPos (inS p) = inS (SPos p)
+
+--: ∀{s s'} → p →     → updateP p (S hole) s ≤ s'
 updateSub : (s : Sub) → Binding s → Sub
 updateSub Z f = Z
 updateSub (S x) f = S (updateSub x (f ∘ inS))
@@ -177,3 +208,21 @@ s <ₛ s' = s ≤ₛ s' × s ≠ s'
 --Bind : Sub → Set
 --Bind s = Σ Sub (Minimal _≤ₛ_ (_<ₛ_ s))
 
+
+data Test (s : Sub) : Set where
+  S : Test s → Test s
+  Z : Test s
+  pos : Holes s → Test s
+  
+convert : ∀{s} → (p : Holes s) → (b : Binding s) → Test (updateSub s b)
+convert p b with b p | inspect b p 
+convert p b | Z    | [ eq ] = Z
+convert {s} p b | S c  | [ eq ] = 
+  let r = convert (inS p) (b ∘ outS) 
+  in S  (subst Test {!!} r) 
+convert p b | hole | [ eq ] = pos (embedHole b p (sym eq))
+
+convert' : ∀{s} → (p : Holes s) → (s' : Sub) → Test (updateP p s')
+convert' p Z = Z
+convert' p (S s') = let r = convert' (SPos p) s' in S {!!}
+convert' p hole = pos (subst Holes (sym (updatePhole p)) p) 

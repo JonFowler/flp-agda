@@ -7,6 +7,7 @@ open import VecI
 open import Data.Vec
 open import Relation.Binary.PropositionalEquality
 open import Function
+open Reveal_is_
 
 data Exp {m : ℕ} (V : ℕ) (M : Subs m) : Set where
   Z : Exp V M
@@ -25,11 +26,24 @@ conv {._} {V} {x ∷ M} zero p (b ∷ bs) | hole | Reveal_is_.[ eq ] =
   mvar zero (embedHole b p (sym eq))
 conv {M = x ∷ M} (suc x₁) p b = {!!}
 
-conv' : ∀{m V}{M M' : Subs m}(x : Fin m) → (p : Holes (lookup x M)) → (M ≤s M') → Exp V M' 
-conv' {M = hole ∷ ms} zero p (≤hole s ∷ b₁) = {!p!}
-conv' zero p (≤Z ∷ b₁) = {!!}
-conv' zero p (≤inS x ∷ b₁) = {!!}
-conv' (suc x) p b = {!!}
+--conv' : ∀{m V}{M M' : Subs m}(x : Fin m) → (p : Holes (lookup x M)) → (M ≤s M') → Exp V M' 
+--conv' {M = m ∷ ms} zero p (b ∷ bs) with lookupP p b | inspect (lookupP p) b
+--conv' {M = m ∷ ms} zero p (b ∷ bs) | Z    | eq = Z
+--conv' {M = m ∷ ms} zero p (b ∷ bs) | S c  | [ eq ] = 
+--  let le = subst (λ x → S hole ≤ₛ x) (sym eq) (≤inS (≤hole c))
+--      r = conv' zero (updateH p) (partUpdate p (S hole) b le  ∷ bs) 
+--  in S r
+--conv' {M = m ∷ ms} zero p (b ∷ b') | hole | [ eq ] = mvar zero (embedH p b eq)
+--conv' (suc x) p b = {!!}
+
+conv'' : ∀{m V}{M : Subs m}(x : Fin m) → (p : Holes (lookup x M)) → (s : Sub) → Exp V (insert x (updateP p s) M) 
+conv'' zero p Z = Z
+conv'' {M = m ∷ ms} zero p (S s) = 
+       let r = conv'' {M = updateP p (S hole) ∷ ms} zero (embedH p) s in S {!r!}
+conv'' {M = m ∷ ms} zero p hole = 
+  mvar zero (subst Holes (sym (updatePhole p)) p)
+conv'' (suc x) p s = {!!}
+
 
 
 
