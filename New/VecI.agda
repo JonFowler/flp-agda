@@ -35,6 +35,11 @@ lookupI : ∀{n}{A : Set}{P : A → Set}{As : Vec A n} → (i : Fin n) → VecI 
 lookupI zero (x ∷ as) = x
 lookupI (suc i) (x ∷ as) = lookupI i as
 
+repeatI : ∀{n}{A : Set}{P : A → Set}(As : Vec A n) → (f : (a : A) → P a) → VecI P As 
+repeatI [] f = []
+repeatI (x ∷ as) f = f x ∷ repeatI as f
+
+
 lookupI₂ : ∀{n}{A B : Set}{P : A → B → Set}{As : Vec A n}{Bs : Vec B n} 
          → (i : Fin n) → VecI₂ P As Bs → P (lookup i As) (lookup i Bs)
 lookupI₂ zero (x ∷ as) = x

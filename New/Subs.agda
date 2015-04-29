@@ -8,6 +8,7 @@ open import Relation.Binary.PropositionalEquality
 open import Relation.Nullary
 open import Data.Product
 open import Data.Empty
+open import Data.Fin
 open import Function
 open import Data.Unit
 
@@ -38,6 +39,9 @@ Binding s = Holes s → Sub
 
 Bindings : ∀{n} → Subs n → Set
 Bindings = VecI Binding
+
+id-Bind : (s : Sub) → Binding s
+id-Bind s p = hole
 
 outValS : {b c : Sub} → S b ≡ S c → b ≡ c
 outValS refl = refl
@@ -72,6 +76,8 @@ data _≤ₛ_ : Sub → Sub → Set where
   ≤hole : (s : Sub) → hole ≤ₛ s
   ≤Z : Z ≤ₛ Z 
   ≤inS : ∀{s s'} → s ≤ₛ s' → S s ≤ₛ S s'
+  
+
   
 lookupP : ∀{s s'} (p : Holes s) → s ≤ₛ s' → Sub
 lookupP hole (≤hole s) = s
@@ -116,35 +122,73 @@ b-uniq {hole}{b}{b'} eq = ext x
   where x : (h : Holes hole) → b h ≡ b' h
         x hole = eq
 
-_∶b_ : ∀{s}(b : Binding s) → Binding (updateSub s b) → Binding s
-_∶b_ {Z} b b' ()
-_∶b_ {S s} b b' = (b ∘ inS) ∶b (b' ∘ inS) ∘ outS
-_∶b_ {hole} b b' hole = updateSub (b hole) b'
+_:b_ : ∀{s}(b : Binding s) → Binding (updateSub s b) → Binding s
+_:b_ {Z} b b' ()
+_:b_ {S s} b b' = (b ∘ inS) :b (b' ∘ inS) ∘ outS
+_:b_ {hole} b b' hole = updateSub (b hole) b'
 
-compb : ∀{s}(b : Binding s)(b' : Binding (updateSub s b)) → updateSub (updateSub s b) b' ≡ updateSub s (b ∶b b')
+compb : ∀{s}(b : Binding s)(b' : Binding (updateSub s b)) → updateSub (updateSub s b) b' ≡ updateSub s (b :b b')
 compb {Z} b b' = refl 
 compb {S s} b b' = cong S (compb (b ∘ inS) (b' ∘ inS)) 
 compb {hole} b b' = refl
 
-_⇨_ : Sub → Sub → Set
-s ⇨ s' = Σ (Binding s) (λ b → s' ≡ updateSub s b)
+_⇨ₛ_ : Sub → Sub → Set
+s ⇨ₛ s' = Σ (Binding s) (λ b → s' ≡ updateSub s b)
 
-_⇨M_ : ∀{m} → Subs m → Subs m → Set
-M ⇨M M' = Σ (Bindings M) (λ B → M' ≡ (zipWithI updateSub M B) )
+_⇨_ : ∀{m} → Subs m → Subs m → Set
+_⇨_ = VecI₂ _⇨ₛ_ --Σ (Bindings M) (λ B → M' ≡ (zipWithI updateSub M B) )
 
-⇨-refl : ∀{s} → s ⇨ s
-⇨-refl {Z} = (λ ()) , refl
-⇨-refl {S x} with ⇨-refl {x}
+
+⇨ₛ-refl : ∀{s} → s ⇨ₛ s
+⇨ₛ-refl {Z} = (λ ()) , refl
+⇨ₛ-refl {S x} with ⇨ₛ-refl {x}
 ...| (b , eq) = b ∘ outS , cong S eq
-⇨-refl {hole} = (λ x → hole) , refl
+⇨ₛ-refl {hole} = (λ x → hole) , refl
 
-_∶⇨_ : ∀{s s' s''} → s ⇨ s' → s' ⇨ s'' → s ⇨ s'' 
-(b , refl) ∶⇨ (b' , refl) = b ∶b b' , compb b b'
+⇨-refl : ∀{m}{M : Subs m} → M ⇨ M
+⇨-refl {M = []} = []
+⇨-refl {M = x ∷ M} = ⇨ₛ-refl  ∷ ⇨-refl
 
-⇨-uniq : ∀{s s'} → (b : s ⇨ s') → (b' : s ⇨ s') → b ≡ b'
-⇨-uniq {s} (b , refl) (b' , eq') with b-uniq {s} eq' 
-⇨-uniq (b , refl) (.b , eq) | refl with eq 
-⇨-uniq (b , refl) (.b , eq) | refl | refl = refl 
+_∘⇨ₛ_ : ∀{s s' s''} →  s' ⇨ₛ s'' → s ⇨ₛ s' → s ⇨ₛ s'' 
+(b' , refl) ∘⇨ₛ (b , refl) = b :b b' , compb b b'
+
+_∘⇨_ : ∀{m}{M M' M'' : Subs m} →  M' ⇨ M'' → M ⇨ M' → M ⇨ M'' 
+[] ∘⇨ [] = []
+(b' ∷ B') ∘⇨ (b ∷ B) = (b' ∘⇨ₛ b) ∷ B' ∘⇨ B
+
+⇨ₛ-uniq : ∀{s s'} → (b : s ⇨ₛ s') → (b' : s ⇨ₛ s') → b ≡ b'
+⇨ₛ-uniq {s} (b , refl) (b' , eq') with b-uniq {s} eq' 
+⇨ₛ-uniq (b , refl) (.b , eq) | refl with eq 
+⇨ₛ-uniq (b , refl) (.b , eq) | refl | refl = refl 
+
+⇨-uniq : ∀{m}{M M' : Subs m} (B : M ⇨ M') → (B' : M ⇨ M') → B ≡ B'
+⇨-uniq [] [] = refl
+⇨-uniq (x ∷ B) (x₁ ∷ B') = cong₂ _∷_ (⇨ₛ-uniq x x₁) (⇨-uniq B B')
+
+bindpoint : ∀{s} → (p : Holes s) → (s' : Sub) → s ⇨ₛ updateP p s' 
+bindpoint hole s' = (λ x → s') , refl
+bindpoint (inS p) s' with bindpoint p s'
+bindpoint (inS p) s' | b , eq = (b ∘ outS) , cong S eq
+
+⇨-point : ∀{m s'}{M : Subs m} → (x : Fin m) → (lookup x M ⇨ₛ s') → 
+                  M ⇨ insert x s' M
+⇨-point {M = s ∷ M} zero b = b ∷ ⇨-refl
+⇨-point {M = s ∷ M} (suc x) b = ⇨ₛ-refl ∷ ⇨-point x b
+
+bindingZ : ∀{m}{M : Subs m} (x : Fin m) → (p : Holes (lookup x M)) → M ⇨ insert x (updateP p Z) M
+bindingZ x p = ⇨-point x (bindpoint p Z)
+
+bindingS :  ∀{m}{M : Subs m} (x : Fin m) → (p : Holes (lookup x M)) → M ⇨ insert x (updateP p (S hole)) M
+bindingS x p = ⇨-point x (bindpoint p (S hole))
+
+
+
+--bindS : ∀{s} → (p : Holes s) → s ⇨ₛ updateP p (S hole) 
+--bindS p = bindpoint p (S hole)
+
+
+
+
 
 --toVal : {s : Sub} → Holes s → (b : Binding s) → Sub (Holes (updateSub s b))
 --toVal hole b with b hole 
@@ -242,6 +286,6 @@ mapTest f (S t) = S (mapTest f t)
 mapTest f Z = Z
 mapTest f (pos x) = pos (f x) 
 
-convert : ∀{s} → (p : Holes s) → (b : Binding s) → Test (updateSub s b)
-convert p b = let r = convert' p (b p) in 
-        mapTest (bindPoint p b) r
+convert : ∀{s s'} → (p : Holes s) → (b : s ⇨ₛ s') → Test s' 
+convert p (b , eq) = let r = convert' p (b p) in 
+        mapTest (subst (λ p' → Holes (updateP p (b p)) → Holes p') (sym eq) (bindPoint p b)) r  --mapTest (bindPoint p b) r

@@ -8,6 +8,7 @@ open import Data.Vec
 open import Relation.Binary.PropositionalEquality
 open import Function
 open import Data.Product
+open import Helpful
 
 data Exp {m : ℕ} (V : ℕ) (M : Subs m) : Set where
   Z : Exp V M 
@@ -58,28 +59,45 @@ Const {A} _ = A
 _↦*_ : ∀{V m}{M : Subs m} → Exp V M → Exp V M → Set
 _↦*_ e e' = Star Const _↦_ {e} {e'} e e'
   
-conv : ∀{m V}{M : Subs m}(x : Fin m) → (p : Holes (lookup x M)) → 
-     (B : Bindings M) → Exp V (zipWithI updateSub M B) 
-conv {M = M} x p B with convert p (lookupI x B)
-conv {V = V}{M = M} x p B | t = temp (subst Test (sym (zipWithI-lookup x updateSub M B)) t) 
+conv : ∀{m V}{M M' : Subs m}(x : Fin m) → (p : Holes (lookup x M)) → 
+     (B : M ⇨ M') → Exp V M' 
+conv {M = M} x p B with convert p (lookupI₂ x B)
+conv {V = V}{M = M} x p B | t = temp t --(subst Test (sym (zipWithI-lookup x updateSub M B)) t) 
   where temp : ∀{M} → Test (lookup x M) → Exp V M
         temp (S t) = S (temp t)
         temp Z = Z
         temp (pos p) = mvar x p
         
-_⟦_⟧ : ∀{m V}{m : Subs m} → (Exp V m) → 
-     (B : Bindings m) → Exp V (zipWithI updateSub m B) 
+_⟦_⟧ : ∀{m V}{M M' : Subs m} → (Exp V M) → 
+     (M ⇨ M') → Exp V M' 
 Z ⟦ B ⟧ = Z
 S e ⟦ B ⟧ = S (e ⟦ B ⟧)
 var x ⟦ B ⟧ = var x
-mvar x p ⟦ B ⟧ = conv x p B
+_⟦_⟧ {V = V} (mvar x p) B = (conv x p B)
 (case e alt₀ e₁ altₛ e₂) ⟦ B ⟧ = case e ⟦ B ⟧ alt₀ e₁ ⟦ B ⟧ altₛ (e₂ ⟦ B ⟧)
 
-_⇝-narr_ : ∀{V m}{M M' : Subs m} → Exp V M → Exp V M' → Set
-_⇝-narr_ {V}{M = M}{M'} e e' = Σ (M ⇨M M') (λ {(B , eq) → e ⟦ B ⟧ ≡ subst (Exp V) eq  e'})
+_⇝⟨_⟩narr⇝_ : ∀{V m}{M M' : Subs m} → Exp V M → M ⇨ M' → Exp V M' → Set
+_⇝⟨_⟩narr⇝_ {V}{M = M}{M'} e B e' = e ⟦ B ⟧ ≡ e'
 
-
-
+data _⇝⟨_⟩⇝_ {V m : ℕ}{M : Subs m} : {M' : Subs m} → Exp V M → M ⇨ M' → Exp V M' → Set where
+  bindZ : ∀{x p} →  mvar x p ⇝⟨ bindingZ x p ⟩⇝ mvar x p ⟦ bindingZ x p ⟧ 
+  bindS : ∀{x p} →  mvar x p ⇝⟨ bindingS x p ⟩⇝ mvar x p ⟦ bindingS x p ⟧
+  prom : {M' : Subs m}{B : M ⇨ M'}{e e₀ : Exp V M}{eₛ : Exp (suc V) M}{e' : Exp V M'} 
+               →  e ⇝⟨ B ⟩⇝ e' → 
+               case e alt₀ e₀  altₛ eₛ ⇝⟨ B ⟩⇝ case e' alt₀ e₀  ⟦ B ⟧ altₛ eₛ ⟦ B ⟧
+               
+isNarrowing : ∀{m V}{M M' : Subs m}{B : M ⇨ M'}{e : Exp V M}{e' : Exp V M'} 
+            → e ⇝⟨ B ⟩⇝ e' → e ⇝⟨ B ⟩narr⇝ e'
+isNarrowing bindZ = refl
+isNarrowing bindS = refl
+isNarrowing (prom r) = cong₃ case_alt₀_altₛ_ (isNarrowing r) refl refl
+--  bindZ : {σ : Subs M}{x : Fin M} → let s = lookup x σ in 
+--           {p : SubVar} → s [ p ]:= hole → 
+--          (σ , mvar x p) ⇝M (update x (updateS Z p) σ , Z) 
+--  bindS : {σ : Subs M}{x : Fin M} → let s = lookup x σ in 
+--    {p : SubVar} → s [ p ]:= hole → 
+--    (σ , mvar x p) ⇝M (update x (updateS (S hole) p) σ , S (mvar x (there p)))
+ 
 
 
 
