@@ -31,15 +31,6 @@ upd-look (suc x) f (s ∷ σ) = upd-look x f σ
 ins-look : ∀{n}{A : Set}(x : Fin n) → (a : A) → (σ : Vec A n) → a ≡ lookup x (insert x a σ)
 ins-look x a σ = upd-look x (const a) σ 
 
-zipI : ∀{n}{A : Set}{P : A → Set} → (as : Vec A n) → VecI P as → Vec (Σ A P) n
-zipI [] [] = []
-zipI (a ∷ as) (p ∷ ps) = (a , p) ∷ zipI as ps
-
-zipWithI : ∀{n}{A B : Set}{P : A → Set}(f : (a : A) → P a → B) → (as : Vec A n) → VecI P as 
-         → Vec B n
-zipWithI f [] [] = []
-zipWithI f (a ∷ as) (p ∷ ps) = f a p ∷ zipWithI f as ps
-
 lookupI : ∀{n}{A : Set}{P : A → Set}{As : Vec A n} → (i : Fin n) → VecI P As → P (lookup i As)
 lookupI zero (x ∷ as) = x
 lookupI (suc i) (x ∷ as) = lookupI i as
@@ -58,6 +49,21 @@ updateI₂ : ∀{n}{A B : Set}{P : A → B → Set}{As : Vec A n}{Bs : Vec B n}{
           (f : P (lookup i As) (lookup i Bs) → P a b) → VecI₂ P As Bs → VecI₂ P (insert i a As) (insert i b Bs)
 updateI₂ zero f (x ∷ as) = f x ∷ as
 updateI₂ (suc i) f (x ∷ as) = x ∷ updateI₂ i f as
+
+
+
+zipI : ∀{n}{A : Set}{P : A → Set} → (as : Vec A n) → VecI P as → Vec (Σ A P) n
+zipI [] [] = []
+zipI (a ∷ as) (p ∷ ps) = (a , p) ∷ zipI as ps
+
+zipWithI : ∀{n}{A B : Set}{P : A → Set}(f : (a : A) → P a → B) → (as : Vec A n) → VecI P as 
+         → Vec B n
+zipWithI f [] [] = []
+zipWithI f (a ∷ as) (p ∷ ps) = f a p ∷ zipWithI f as ps
+
+zipWithI-lookup : ∀{n}{A B : Set}{P : A → Set}(x : Fin n) → (f : (a : A) → P a → B) → (as : Vec A n) → (bs : VecI P as) → lookup x (zipWithI f as bs) ≡ f (lookup x as) (lookupI x bs)
+zipWithI-lookup zero f (a ∷ as) (b ∷ bs) = refl
+zipWithI-lookup (suc x) f (a ∷ as) (b ∷ bs) = zipWithI-lookup x f as bs
 
 --insertI : ∀{n γ}{A : Set γ}{As : Vec (Set γ) n} → (i : Fin n) → 
 --          A → VecI As → VecI (insert i A As)

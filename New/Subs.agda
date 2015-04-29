@@ -99,10 +99,6 @@ joinPos : ∀{s s'} → (p : Holes s) → (p' : Holes s') →
 joinPos hole p' = p'
 joinPos (inS p) p' = inS (joinPos p p')
 
-SPos : ∀{s} → (p : Holes s) → Holes (updateP p (S hole)) 
-SPos hole = inS hole
-SPos (inS p) = inS (SPos p)
-
 --: ∀{s s'} → p →     → updateP p (S hole) s ≤ s'
 updateSub : (s : Sub) → Binding s → Sub
 updateSub Z f = Z
@@ -132,6 +128,9 @@ compb {hole} b b' = refl
 
 _⇨_ : Sub → Sub → Set
 s ⇨ s' = Σ (Binding s) (λ b → s' ≡ updateSub s b)
+
+_⇨M_ : ∀{m} → Subs m → Subs m → Set
+M ⇨M M' = Σ (Bindings M) (λ B → M' ≡ (zipWithI updateSub M B) )
 
 ⇨-refl : ∀{s} → s ⇨ s
 ⇨-refl {Z} = (λ ()) , refl
@@ -214,15 +213,35 @@ data Test (s : Sub) : Set where
   Z : Test s
   pos : Holes s → Test s
   
-convert : ∀{s} → (p : Holes s) → (b : Binding s) → Test (updateSub s b)
-convert p b with b p | inspect b p 
-convert p b | Z    | [ eq ] = Z
-convert {s} p b | S c  | [ eq ] = 
-  let r = convert (inS p) (b ∘ outS) 
-  in S  (subst Test {!!} r) 
-convert p b | hole | [ eq ] = pos (embedHole b p (sym eq))
+--convert p b with b p | inspect b p 
+--convert p b | Z    | [ eq ] = Z
+--convert {s} p b | S c  | [ eq ] = 
+--  let r = convert (inS p) (b ∘ outS) 
+--  in S  (subst Test {!!} r) 
+--convert p b | hole | [ eq ] = pos (embedHole b p (sym eq))
+
+upd-assoc : ∀{s s' s''} → (p : Holes s) → (p' : Holes s') →  updateP {updateP {s} p s'} (joinPos p p') s'' ≡ updateP {s} p (updateP {s'} p' s'') 
+upd-assoc hole p' = refl
+upd-assoc (inS p) p' = cong S (upd-assoc p p')
 
 convert' : ∀{s} → (p : Holes s) → (s' : Sub) → Test (updateP p s')
 convert' p Z = Z
-convert' p (S s') = let r = convert' (SPos p) s' in S {!!}
+convert' p (S s') = let r = convert' (joinPos p (inS hole)) s' 
+     in S (subst Test (upd-assoc p (inS hole)) r)
 convert' p hole = pos (subst Holes (sym (updatePhole p)) p) 
+
+bindPoint : ∀{s}(p : Holes s) → (b : Binding s) → Holes (updateP p (b p)) → Holes (updateSub s b)
+bindPoint hole b p' with b hole
+bindPoint hole b () | Z
+bindPoint hole b  p' | S c = p'
+bindPoint hole b p' | hole = p'
+bindPoint (inS p) b (inS p') = inS (bindPoint p (b ∘ inS) p')
+
+mapTest : ∀{s s'} → ((Holes s) → (Holes s')) → Test s → Test s'
+mapTest f (S t) = S (mapTest f t)
+mapTest f Z = Z
+mapTest f (pos x) = pos (f x) 
+
+convert : ∀{s} → (p : Holes s) → (b : Binding s) → Test (updateSub s b)
+convert p b = let r = convert' p (b p) in 
+        mapTest (bindPoint p b) r
