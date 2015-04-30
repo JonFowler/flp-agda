@@ -31,6 +31,8 @@ data Holes : Sub → Set where
   hole : Holes hole
   inS : {s : Sub} → (h : Holes s) → Holes (S s)
   
+
+  
 outS : ∀{h} → Holes (S h) → Holes h
 outS (inS h) = h
   
@@ -77,6 +79,31 @@ data _≤ₛ_ : Sub → Sub → Set where
   ≤Z : Z ≤ₛ Z 
   ≤inS : ∀{s s'} → s ≤ₛ s' → S s ≤ₛ S s'
   
+_≤_ : ∀{M} → Subs M → Subs M → Set
+_≤_ = VecI₂ _≤ₛ_
+
+-- Ordering is reflexive
+≤ₛ-refl : ∀{s} → s ≤ₛ s
+≤ₛ-refl {hole} = ≤hole hole
+≤ₛ-refl {Z} = ≤Z
+≤ₛ-refl {S s} = ≤inS ≤ₛ-refl
+                                        
+-- Transitivity (composability) of ordering
+_≤ₛ∘_ : ∀{s s' s''} → s' ≤ₛ s'' → s ≤ₛ s' → s ≤ₛ s''
+_≤ₛ∘_ {s'' = s''} o' (≤hole s) = ≤hole s'' 
+_≤ₛ∘_ o' ≤Z = o'
+_≤ₛ∘_ (≤inS o') (≤inS o) = ≤inS (o' ≤ₛ∘ o)
+
+-- Lifting reflectivity to environment order
+≤s-refl : ∀{m} {σ : Subs m} → σ ≤ σ
+≤s-refl {σ = []} = []
+≤s-refl {σ = x ∷ σ} = ≤ₛ-refl ∷ ≤s-refl
+
+-- Lifting transivity to environment order
+_≤s∘_ : ∀{m} {σ σ' σ'' : Subs m} → σ' ≤ σ'' → σ ≤ σ' → σ ≤ σ''
+_≤s∘_ [] [] = []
+_≤s∘_ (s' ∷ o') (s ∷ o) = s' ≤ₛ∘ s ∷ o' ≤s∘ o 
+  
 ≤ₛ-look : ∀{s s'} (p : Holes s) → s ≤ₛ s' → Sub
 ≤ₛ-look hole (≤hole s) = s
 ≤ₛ-look (inS p) (≤inS s) = ≤ₛ-look p s
@@ -84,6 +111,11 @@ data _≤ₛ_ : Sub → Sub → Set where
 updateP : {s : Sub} → (p : Holes s) → (s' : Sub)  → Sub
 updateP  hole s' = s'
 updateP  (inS p) s' = S (updateP p s')
+
+≤ₛ-look' : ∀{s s'} (p : Holes s) → s ≤ₛ s' → Σ Sub (λ s'' → updateP p s'' ≤ₛ s')
+≤ₛ-look' hole (≤hole s') = s' , ≤ₛ-refl 
+≤ₛ-look' (inS p) (≤inS b) with ≤ₛ-look' p b
+...| (s' , b') = s' , ≤inS b'
 
 ≤ₛ-point : ∀{s} → (p : Holes s) → (s' : Sub) → s ≤ₛ updateP p s' 
 ≤ₛ-point hole s' = ≤hole s'
@@ -98,9 +130,6 @@ updatePhole (inS p) = cong S (updatePhole p)
 --partUpdate hole s' (≤hole s'') le' = le'
 --partUpdate (inS p) s' (≤inS le) le' = ≤inS (partUpdate p s' le le')
 
-updateH : ∀{s} → (p : Holes s) → Holes (updateP p (S hole)) 
-updateH hole = inS hole
-updateH (inS p) = inS (updateH p)
 
 joinPos : ∀{s s'} → (p : Holes s) → (p' : Holes s') → 
      Holes (updateP p s') 
@@ -214,31 +243,6 @@ bindingS x p = ⇨-point x (bindPoint p (S hole))
 --SubVars : ∀{M} → Subs M → Set
 --SubVars = VecI Holes 
 --
-_≤_ : ∀{M} → Subs M → Subs M → Set
-_≤_ = VecI₂ _≤ₛ_
-
--- Ordering is reflexive
-≤ₛ-refl : ∀{s} → s ≤ₛ s
-≤ₛ-refl {hole} = ≤hole hole
-≤ₛ-refl {Z} = ≤Z
-≤ₛ-refl {S s} = ≤inS ≤ₛ-refl
-                                        
--- Transitivity (composability) of ordering
-_≤ₛ∘_ : ∀{s s' s''} → s' ≤ₛ s'' → s ≤ₛ s' → s ≤ₛ s''
-_≤ₛ∘_ {s'' = s''} o' (≤hole s) = ≤hole s'' 
-_≤ₛ∘_ o' ≤Z = o'
-_≤ₛ∘_ (≤inS o') (≤inS o) = ≤inS (o' ≤ₛ∘ o)
-
--- Lifting reflectivity to environment order
-≤s-refl : ∀{m} {σ : Subs m} → σ ≤ σ
-≤s-refl {σ = []} = []
-≤s-refl {σ = x ∷ σ} = ≤ₛ-refl ∷ ≤s-refl
-
--- Lifting transivity to environment order
-_≤s∘_ : ∀{m} {σ σ' σ'' : Subs m} → σ' ≤ σ'' → σ ≤ σ' → σ ≤ σ''
-_≤s∘_ [] [] = []
-_≤s∘_ (s' ∷ o') (s ∷ o) = s' ≤ₛ∘ s ∷ o' ≤s∘ o 
-
 --data Bind : Sub → Sub → Set where
 --  bindZ : Bind hole Z
 --  bindS : Bind hole (S hole) 
@@ -274,7 +278,7 @@ liftPoint hole b p' with b hole
 liftPoint hole b p' | c = p'
 liftPoint (inS p) b (inS p') = inS (liftPoint p (b ∘ inS) p')
 
-liftPoint' : ∀{s s'}(p : Holes s) → (b : s ≤ₛ s') → Holes (updateP p (≤ₛ-look p b)) → Holes s' 
+liftPoint' : ∀{s s'}(p : Holes s) → (b : updateP p s' ≤ₛ s') → Holes (updateP p s') → Holes s' 
 liftPoint' hole (≤hole s) h = h
 liftPoint' (inS p) (≤inS r) (inS h) = inS (liftPoint' p r h)
 
@@ -288,7 +292,9 @@ mapValPos f (pos x) = f x
 --        mapValPos (subst (λ p' → Holes (updateP p (b p)) → Holes p') (sym eq) (liftPoint p b)) r  
         
 valPos' : ∀{s s'} → (p : Holes s) → (b : s ≤ₛ s') → ValPos s' 
-valPos' p b = mapValPos (pos ∘ liftPoint' p b) (valPosP p (≤ₛ-look p b))
+valPos' p b = let (s' , b') = ≤ₛ-look' p b in
+    mapValPos {!!} (valPosP p s')
+
 
 --valPos-refl : ∀{s} → (p : Holes s) → (b : s ≤ₛ s) → pos p ≡ valPos' p b
 --valPos-refl p b with ≤ₛ-look p b
