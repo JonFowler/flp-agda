@@ -58,16 +58,17 @@ data _≤ₛ_ : Sub → Sub → Set where
 ≤ₛ-look (inS p) ≤Z = hole
 ≤ₛ-look (inS p) (≤inS b) = ≤ₛ-look p b
 
-∈-look : ∀{p p' s s' s''} → (p ∈ₛ s) → (b : s ≤ₛ s') → p' ∈ₛ s'' → ≤ₛ-look p b ≡ s'' → (p +ₚ p') ∈ₛ s' 
-∈-look hole (≤hole s'') i' refl = i'
-∈-look (inS i) (≤inS b) i' eq = inS (∈-look i b i' eq)
+≤ₛ-look-refl : ∀{p s} → (p ∈ₛ s) → (b : s ≤ₛ s) → ≤ₛ-look p b ≡ hole
+≤ₛ-look-refl hole (≤hole .hole) = refl
+≤ₛ-look-refl (inS p) (≤inS b) = ≤ₛ-look-refl p b
+
 
 updateP : (s' : Sub) → (p : Pos) →  (s : Sub)  → Sub
 updateP s' hole s = s'
 updateP s' (inS p) (S s) = updateP s' p s
 updateP s' (inS p) a = hole
 
-updateP-                updateP s'' (p +ₚ p') (updateP s' p s) ≡ updateP (updateP s'' p' s') p s 
+--updateP-                updateP s'' (p +ₚ p') (updateP s' p s) ≡ updateP (updateP s'' p' s') p s 
 
 --≤ₛ-point : ∀{s} → (p : Pos) → (s' : Sub) → s ≤ₛ updateP p s' s 
 --≤ₛ-point {Z} hole s' = {!!}
@@ -167,19 +168,29 @@ data _∈ₚ_ : ValPos → Sub → Set where
   Z : ∀{s} → Z ∈ₚ s
   pos : ∀{s p} → p ∈ₛ s → pos p ∈ₚ s
   
+mapValPos : (Pos → ValPos) → ValPos → ValPos 
+mapValPos f (S t) = S (mapValPos f t)
+mapValPos f Z = Z
+mapValPos f (pos x) = f x 
+
+∈-mapValPos : ∀{s' vp}{s : Sub}{f : Pos → ValPos} →  ({p : Pos} → p ∈ₛ s → f p ∈ₚ s') → vp ∈ₚ s → mapValPos f vp ∈ₚ s'
+∈-mapValPos f' (S vp) = S (∈-mapValPos f' vp)
+∈-mapValPos f' Z = Z
+∈-mapValPos f' (pos x) = f' x
+  
 --upd-assoc : ∀{s s' s''} → (p : Holes s) → (p' : Holes s') →  updateP {updateP {s} p s'} (joinPos p p') s'' ≡ updateP {s} p (updateP {s'} p' s'') 
 --upd-assoc hole p' = refl
 --upd-assoc (inS p) p' = cong S (upd-assoc p p')
 --
-valPosP : (p : Pos) →  (s : Sub) → ValPos 
-valPosP p Z = Z
-valPosP p (S s) = S (valPosP (p +ₚ inS hole) s)
-valPosP p hole = pos p
+valPosP : (s : Sub) → ValPos 
+valPosP Z = Z
+valPosP (S s) = S (mapValPos (λ x → pos (inS x)) (valPosP s))
+valPosP hole = pos hole
 
-∈-valPosP  : ∀{p s} → p ∈ₛ s → (s' : Sub) →  valPosP p s' ∈ₚ updateP s' p s
-∈-valPosP i Z = Z
-∈-valPosP {p}{s} i (S s') = S (subst (λ x → valPosP (p +ₚ inS hole) s' ∈ₚ x) {!!} (∈-valPosP {s = updateP (S hole) p s} {!!} s'))
-∈-valPosP i hole = {!!}
+∈-valPosP  : (s : Sub) →  valPosP s ∈ₚ s 
+∈-valPosP Z = Z
+∈-valPosP (S s) = S (∈-mapValPos (λ x → pos (inS x)) (∈-valPosP s))
+∈-valPosP hole = pos hole
 
 --liftPoint : ∀{s}(p : Holes s) → (b : Binding s) → Holes (updateP p (b p)) → Holes (updateSub s b)
 --liftPoint hole b p' with b hole
@@ -190,30 +201,26 @@ valPosP p hole = pos p
 --liftPoint' hole (≤hole s) h = h
 --liftPoint' (inS p) (≤inS r) (inS h) = inS (liftPoint' p r h)
 
-mapValPos : (Pos → ValPos) → ValPos → ValPos 
-mapValPos f (S t) = S (mapValPos f t)
-mapValPos f Z = Z
-mapValPos f (pos x) = f x 
-
 valPos : ∀{s s'} → (p : Pos) → (b : s ≤ₛ s') → ValPos 
-valPos p b = valPosP p (≤ₛ-look p b) 
+valPos p b = mapValPos (λ p' → pos (p +ₚ p')) (valPosP (≤ₛ-look p b))
+
+∈-+ₚ : ∀{p p' s s'} → (b : s ≤ₛ s') → (p ∈ₛ s) → (p' ∈ₛ ≤ₛ-look p b) → (p +ₚ p') ∈ₛ s'
+∈-+ₚ (≤hole s) hole p' = p'
+∈-+ₚ (≤inS b) (inS p) p' = inS (∈-+ₚ b p p') -- {! (∈-+ₚ b p p')!}
 
 ∈-valPos : ∀{p s s'} → (p ∈ₛ s) → (b : s ≤ₛ s') → valPos p b ∈ₚ s'
-∈-valPos {p}{s}{s'} i b with ≤ₛ-look p b | inspect (≤ₛ-look p) b
-∈-valPos i b | Z    | [ eq ] = Z
-∈-valPos i b | S c  | [ eq ] = S {!∈-valPos!}
-∈-valPos {p}{s}{s'} i b | hole | [ eq ] = let r =  (∈-look {s'' = hole} i b hole eq) in pos (subst (flip _∈ₛ_ s') +ₚ-id r)
-      
-----valPos-refl : ∀{s} → (p : Holes s) → (b : s ≤ₛ s) → pos p ≡ valPos' p b
-----valPos-refl p b with ≤ₛ-look p b
-----...| c  = {!!}
-----valPos-refl hole (≤hole .hole) = refl
-----valPos-refl (inS p) (≤inS b) = let r = (valPos-refl p b) in {!!}
---
-valPos-join : ∀{s s' s''} → (p : Pos) → (b : s ≤ₛ s') → (b' : s' ≤ₛ s'') → 
-           valPos p (b' ≤ₛ∘ b) ≡ mapValPos (λ p' → valPos p' b') (valPos p b)
-valPos-join hole (≤hole s) b' = {!!}
-valPos-join hole ≤Z b' = {!!}
-valPos-join hole (≤inS b) b' = {!!}
-valPos-join (inS p) b b' = {!!}
+∈-valPos {p}{s}{s'} i b = ∈-mapValPos (λ x → pos (∈-+ₚ b i x)) (∈-valPosP (≤ₛ-look p b)) 
+
+valPos-refl : ∀{p s} → (p ∈ₛ s) → (b : s ≤ₛ s) → valPos p b ≡ pos p 
+valPos-refl {p = p} i b = 
+            let r = ≤ₛ-look-refl i b 
+                y = cong valPosP r 
+                z = cong (mapValPos (λ p' → pos (p +ₚ p'))) y  in trans z (cong pos +ₚ-id)
+
+--valPos-join : ∀{s s' s''} → (p : Pos) → (b : s ≤ₛ s') → (b' : s' ≤ₛ s'') → 
+--           valPos p (b' ≤ₛ∘ b) ≡ mapValPos (λ p' → valPos p' b') (valPos p b)
+--valPos-join hole (≤hole s) b' = {!!}
+--valPos-join hole ≤Z b' = {!!}
+--valPos-join hole (≤inS b) b' = {!!}
+--valPos-join (inS p) b b' = {!!}
 

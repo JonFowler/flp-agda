@@ -112,7 +112,9 @@ updateP : {s : Sub} → (p : Holes s) → (s' : Sub)  → Sub
 updateP  hole s' = s'
 updateP  (inS p) s' = S (updateP p s')
 
-≤ₛ-look' : ∀{s s'} (p : Holes s) → s ≤ₛ s' → Σ Sub (λ s'' → updateP p s'' ≤ₛ s')
+
+≤ₛ-look' : ∀{s s'} (p : Holes s) → s ≤ₛ s' → 
+         Σ Sub (λ s'' → updateP p s'' ≤ₛ s')
 ≤ₛ-look' hole (≤hole s') = s' , ≤ₛ-refl 
 ≤ₛ-look' (inS p) (≤inS b) with ≤ₛ-look' p b
 ...| (s' , b') = s' , ≤inS b'
@@ -196,6 +198,13 @@ _∘⇨_ : ∀{m}{M M' M'' : Subs m} →  M' ⇨ M'' → M ⇨ M' → M ⇨ M''
 ⇨-uniq [] [] = refl
 ⇨-uniq (x ∷ B) (x₁ ∷ B') = cong₂ _∷_ (⇨ₛ-uniq x x₁) (⇨-uniq B B')
 
+EmptyPos : ∀{s s'} → Holes s → (s ⇨ₛ s') → Set
+EmptyPos p (b , eq) = b p ≡ hole
+
+--splitp : ∀{s s'} (p : Holes s) → s ⇨ₛ s' → 
+--         Σ Sub (λ s'' → Σ (updateP p s'' ⇨ₛ s') (EmptyPos (addPos p ()))
+--splitp = {!!}
+
 bindPoint : ∀{s} → (p : Holes s) → (s' : Sub) → s ⇨ₛ updateP p s' 
 bindPoint hole s' = (λ x → s') , refl
 bindPoint (inS p) s' with bindPoint p s'
@@ -267,33 +276,39 @@ upd-assoc : ∀{s s' s''} → (p : Holes s) → (p' : Holes s') →  updateP {up
 upd-assoc hole p' = refl
 upd-assoc (inS p) p' = cong S (upd-assoc p p')
 
-valPosP : ∀{s} → (p : Holes s) → (s' : Sub) → ValPos (updateP p s')
-valPosP p Z = Z
-valPosP p (S s') = let r = valPosP (joinPos p (inS hole)) s' 
-     in S (subst ValPos (upd-assoc p (inS hole)) r)
-valPosP p hole = pos (subst Holes (sym (updatePhole p)) p) 
-
-liftPoint : ∀{s}(p : Holes s) → (b : Binding s) → Holes (updateP p (b p)) → Holes (updateSub s b)
-liftPoint hole b p' with b hole
-liftPoint hole b p' | c = p'
-liftPoint (inS p) b (inS p') = inS (liftPoint p (b ∘ inS) p')
-
-liftPoint' : ∀{s s'}(p : Holes s) → (b : updateP p s' ≤ₛ s') → Holes (updateP p s') → Holes s' 
-liftPoint' hole (≤hole s) h = h
-liftPoint' (inS p) (≤inS r) (inS h) = inS (liftPoint' p r h)
-
 mapValPos : ∀{s s'} → ((Holes s) → (ValPos s')) → ValPos s → ValPos s'
 mapValPos f (S t) = S (mapValPos f t)
 mapValPos f Z = Z
 mapValPos f (pos x) = f x 
 
+valPosP : (s : Sub) → ValPos s 
+valPosP Z = Z
+valPosP (S s) = mapValPos (pos ∘ inS) (valPosP s) 
+valPosP hole = pos hole 
+
+liftPoint : ∀{s}(p : Holes s) → (b : Binding s) → Holes (b p) → Holes (updateSub s b)
+liftPoint hole b p' = p' 
+liftPoint (inS p) b p' = inS (liftPoint p (b ∘ inS) p')
+
+liftPoint' : ∀{s s'}(p : Holes s) → (b : s ≤ₛ s') → Holes (≤ₛ-look p b) → Holes s' 
+liftPoint' hole (≤hole s) p' = p'
+liftPoint' (inS p) (≤inS r) p' = inS (liftPoint' p r p')
+
+--liftPoint'' : ∀{s s' s''}(p : Holes s) → (updateP p s'' ≡ s') → Holes s'' → Holes s' 
+--liftPoint'' hole (≤hole s) p' = p'
+--liftPoint'' (inS p) (≤inS r) p' = inS (liftPoint' p r p')
+
+
+
 --valPos : ∀{s s'} → (p : Holes s) → (b : s ⇨ₛ s') → ValPos s' 
 --valPos p (b , eq) = let r = valPosP p (b p) in 
---        mapValPos (subst (λ p' → Holes (updateP p (b p)) → Holes p') (sym eq) (liftPoint p b)) r  
-        
+--        mapValPos (subst (λ x → Holes (updateP p (b p)) → x) (cong ValPos (sym eq)) 
+--                         (pos ∘ (liftPoint p b))) r
+--(subst (λ p' → Holes (updateP p (b p)) → Holes p') ? (liftPoint p b)) r  
+
 valPos' : ∀{s s'} → (p : Holes s) → (b : s ≤ₛ s') → ValPos s' 
-valPos' p b = let (s' , b') = ≤ₛ-look' p b in
-    mapValPos {!!} (valPosP p s')
+valPos' p b = let s = ≤ₛ-look p b in
+    mapValPos (pos ∘ liftPoint' p b) (valPosP s)
 
 
 --valPos-refl : ∀{s} → (p : Holes s) → (b : s ≤ₛ s) → pos p ≡ valPos' p b
