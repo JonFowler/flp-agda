@@ -66,62 +66,18 @@ data _≤ₛ_ : Sub → Sub → Set where
 ≤ₛ-look-refl hole (≤hole .hole) = refl
 ≤ₛ-look-refl (inS p) (≤inS b) = ≤ₛ-look-refl p b
 
+look : (p : Pos) → Sub → Sub
+look hole s = s
+look (inS p) Z = hole
+look (inS p) (S s) = look p s
+look (inS p) hole = hole
+
 
 updateP : (s' : Sub) → (p : Pos) →  (s : Sub)  → Sub
 updateP s' hole s = s'
 updateP s' (inS p) (S s) = updateP s' p s
 updateP s' (inS p) a = hole
 
---updateP-                updateP s'' (p +ₚ p') (updateP s' p s) ≡ updateP (updateP s'' p' s') p s 
-
---≤ₛ-point : ∀{s} → (p : Pos) → (s' : Sub) → s ≤ₛ updateP p s' s 
---≤ₛ-point {Z} hole s' = {!!}
---≤ₛ-point {S s} hole s' = {!!}
---≤ₛ-point {hole} hole s' = ≤hole s'
---≤ₛ-point (inS p) s' = {!!}
-
---updatePhole : ∀{s} (p : Holes s) → updateP {s} p hole ≡ s 
---updatePhole hole = refl
---updatePhole (inS p) = cong S (updatePhole p)
---
-----partUpdate : {s s'' : Sub} → (p : Holes s) → (s' : Sub) → 
-----              (le : s ≤ₛ s'') → s' ≤ₛ lookupP p le → updateP p s' ≤ₛ s''
-----partUpdate hole s' (≤hole s'') le' = le'
-----partUpdate (inS p) s' (≤inS le) le' = ≤inS (partUpdate p s' le le')
---
---updateH : ∀{s} → (p : Holes s) → Holes (updateP p (S hole)) 
---updateH hole = inS hole
---updateH (inS p) = inS (updateH p)
---
---joinPos : ∀{s s'} → (p : Holes s) → (p' : Holes s') → 
---     Holes (updateP p s') 
---joinPos hole p' = p'
---joinPos (inS p) p' = inS (joinPos p p')
---
---updateSub : ∀{s s'} → p →     → updateP p (S hole) s ≤ s'
---updateSub : (s : Sub) → Binding s → Sub
---updateSub Z f = Z
---updateSub (S x) f = S (updateSub x (f ∘ inS))
---updateSub hole f = f hole
-
---embedHole : ∀{s} → (b : Binding s) → (p : Holes s) → hole ≡ b p → Holes (updateSub s b)
---embedHole b hole e = subst Holes e hole
---embedHole b (inS p) e = inS (embedHole (b ∘ inS) p e)
---
---b-uniq : ∀{s}{b b' : Binding s} → updateSub s b ≡ updateSub s b' → b ≡ b'
---b-uniq {Z} eq = ext (λ ())
---b-uniq {S s}{b}{b'} eq = let r = b-uniq {s} (outValS eq) in ext (λ {(inS h) → cong-app r h}) 
---b-uniq {hole}{b}{b'} eq = ext x
---  where x : (h : Holes hole) → b h ≡ b' h
---        x hole = eq
---
---bindingZ : ∀{m}{M : Subs m} (x : Fin m) → (p : Holes (lookup x M)) → M ⇨ insert x (updateP p Z) M
---bindingZ x p = ⇨-point x (bindPoint p Z)
---
---bindingS :  ∀{m}{M : Subs m} (x : Fin m) → (p : Holes (lookup x M)) → M ⇨ insert x (updateP p (S hole)) M
---bindingS x p = ⇨-point x (bindPoint p (S hole))
---
---
 _≤_ : ∀{M} → Subs M → Subs M → Set
 _≤_ = VecI₂ _≤ₛ_
 
@@ -221,6 +177,10 @@ valPosP hole = pos hole
 valPos : ∀{s s'} → (p : Pos) → (b : s ≤ₛ s') → ValPos 
 valPos p b = mapValPos (λ p' → pos (p +ₚ p')) (valPosP (≤ₛ-look p b))
 
+valPos' : (p : Pos) → Sub → ValPos 
+valPos' p s = mapValPos (λ p' → pos (p +ₚ p')) (valPosP (look p s))
+
+
 ∈-+ₚ : ∀{p p' s s'} → (b : s ≤ₛ s') → (p ∈ₛ s) → (p' ∈ₛ ≤ₛ-look p b) → (p +ₚ p') ∈ₛ s'
 ∈-+ₚ (≤hole s) hole p' = p'
 ∈-+ₚ (≤inS b) (inS p) p' = inS (∈-+ₚ b p p') -- {! (∈-+ₚ b p p')!}
@@ -236,6 +196,11 @@ valPos-refl {p = p} i b =
                 
 --test : mapValPos (λ p' → pos (p +ₚ p'))  (valPosP (≤ₛ-look p (b' ≤ₛ∘ b))) 
 
+--  valPosP s' ≡ mapValPos (λ p' → valPosP (look p s')) (valPosP s)
+
+valPos'-idem : (p : Pos) → (s s' : Sub) → s ≤ₛ s' → 
+     valPos' p s' ≡ mapValPos (λ p' → valPos' p' s') (valPos' p s) 
+valPos'-idem p b = {!!}
 
 valPos-join : ∀{s s' s''} → (p : Pos) → (b : s ≤ₛ s') → (b' : s' ≤ₛ s'') → 
            valPos p (b' ≤ₛ∘ b) ≡ mapValPos (λ p' → valPos p' b') (valPos p b)
