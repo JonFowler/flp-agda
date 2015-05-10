@@ -9,6 +9,8 @@ open import Function
 open import Data.Unit
 open import Agda.Primitive
 open import Relation.Binary.PropositionalEquality
+open import Relation.Nullary
+open import Data.Empty
 open import VecI
 open import Sub
 
@@ -132,7 +134,8 @@ data Star {A : Set}(P : Red A) : Red A where
   
 _↦*_ : {V M : ℕ} → Red (Exp V M)
 _↦*_ = Star _↦_
-  
+
+ 
 Env : ℕ → ℕ → Set
 Env V M = Subs M × Exp V M
 
