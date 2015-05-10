@@ -1,9 +1,9 @@
 module Sub where
 
-open import Data.Unit
+open import Data.Unit hiding (_≤_)
 open import Data.Empty
-open import Data.Nat
-open import Data.Fin
+open import Data.Nat hiding (_≤_)
+open import Data.Fin hiding (_≤_)
 open import VecI
 open import Data.Vec
 open import Relation.Binary.PropositionalEquality
@@ -24,10 +24,15 @@ data Pos : Set where
   here : Pos
   there : Pos → Pos
   
-_∈ₛ_ : Pos → Sub → Set
-here ∈ₛ hole = Unit
-there p ∈ₛ S s = p ∈ₛ s
-_ ∈ₛ _ = ⊥
+data _∈ₛ_ : Pos → Sub → Set where
+  here : here ∈ₛ hole 
+  there : ∀{p s} → p ∈ₛ s → there p ∈ₛ S s 
+  
+_+ₚ_ : Pos → Pos → Pos
+here +ₚ p = p
+there p +ₚ p' = there (p +ₚ p')
+
+
 
 Inp : Sub → Set
 Inp hole = ⊥
@@ -40,8 +45,8 @@ data _≤ₛ_ : Sub → Sub → Set where
   ≤ₛ-Z : Z ≤ₛ Z 
   ≤ₛ-S : ∀{s s'} → s ≤ₛ s' → S s ≤ₛ S s'
 
-_≤s_ : {m : ℕ} → Subs m → Subs m → Set
-_≤s_ = VecI₂ _≤ₛ_ 
+_≤_ : {m : ℕ} → Subs m → Subs m → Set
+_≤_ = VecI₂ _≤ₛ_ 
 
 ≤ₛ-refl : ∀{s} → s ≤ₛ s
 ≤ₛ-refl {hole} = ≤ₛ-hole 
@@ -54,13 +59,13 @@ _≤s_ = VecI₂ _≤ₛ_
 ≤ₛ-trans ≤ₛ-Z ≤ₛ-Z = ≤ₛ-Z
 ≤ₛ-trans (≤ₛ-S o) (≤ₛ-S o') = ≤ₛ-S (≤ₛ-trans o o')
 
-≤s-refl : ∀{m} {σ : Subs m} → σ ≤s σ
-≤s-refl {σ = []} = []
-≤s-refl {σ = x ∷ σ} = ≤ₛ-refl {x} ∷ ≤s-refl
+≤-refl : ∀{m} {σ : Subs m} → σ ≤ σ
+≤-refl {σ = []} = []
+≤-refl {σ = x ∷ σ} = ≤ₛ-refl {x} ∷ ≤-refl
 
-≤s-trans : ∀{m} {σ σ' σ'' : Subs m} → σ ≤s σ' → σ' ≤s σ'' → σ ≤s σ''
-≤s-trans [] [] = []
-≤s-trans {suc m}{s ∷ _}{s' ∷ _} (o ∷ os) (o' ∷ os') = ≤ₛ-trans {s}{s'} o o' ∷ ≤s-trans os os' 
+≤-trans : ∀{m} {σ σ' σ'' : Subs m} → σ ≤ σ' → σ' ≤ σ'' → σ ≤ σ''
+≤-trans [] [] = []
+≤-trans {suc m}{s ∷ _}{s' ∷ _} (o ∷ os) (o' ∷ os') = ≤ₛ-trans {s}{s'} o o' ∷ ≤-trans os os' 
 
 
 
@@ -73,6 +78,15 @@ lookupS : Pos → Sub → Sub
 lookupS here s = s
 lookupS (there p) (S s) = lookupS p s
 lookupS (there p) s = hole
+
+
+--∈-lookupS : ∀{p s} → p ∈ₛ s → hole ≡ lookupS p s → p ∈ₛ s
+--∈-lookupS {here} {hole} x = unit
+--∈-lookupS {here} {Z} ()
+--∈-lookupS {here} {S s} ()
+--∈-lookupS {there p} {hole} x = {!x!}
+--∈-lookupS {there p} {Z} x = {!!}
+--∈-lookupS {there p} {S s} x = {!!}
 
 outS : Sub → Sub
 outS hole = hole
@@ -92,3 +106,14 @@ lookupS-mono here o = o
 lookupS-mono (there p) ≤ₛ-hole = ≤ₛ-hole
 lookupS-mono (there p) ≤ₛ-Z = ≤ₛ-hole
 lookupS-mono (there p) (≤ₛ-S o) = lookupS-mono p o
+
+
+
+
+
+data ValPos : Set where
+  hole : Pos → ValPos
+  Z : ValPos
+  S : ValPos → ValPos
+  
+
