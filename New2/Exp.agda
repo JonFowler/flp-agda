@@ -62,11 +62,22 @@ conv' hole = mvar here
 conv' Z = Z
 conv' (S s) = S (mapPos' (λ p → mvar (there p)) (conv' s)) 
 
+∈-conv' : ∀{V} → (s : Sub) → conv' {V} s ∈E' s 
+∈-conv' hole = mvar here
+∈-conv' Z = Z
+∈-conv' (S s) = S {!!}
+
 toExp' : ∀{V} (p : Pos) → (s : Sub) → Exp' V
+toExp' (there p) (S s) = mapPos' (λ p → mvar (there p)) (toExp' p s) -- mapPos' (λ p' → p +ₚ p') (conv' (lookupS p s))
 toExp' here s = conv' s
 toExp' (there p) hole = mvar (there p)
 toExp' (there p) Z = mvar (there p)
-toExp' (there p) (S s) = mapPos' (λ p → mvar (there p)) (toExp' p s) -- mapPos' (λ p' → p +ₚ p') (conv' (lookupS p s))
+
+∈-toExp' : ∀{V}{σ τ : Sub} → (σ ≤ₛ τ) → (p : Pos) 
+          → (p ∈ₛ σ) → toExp' {V = V} p τ ∈E' τ
+∈-toExp' ≤ₛ-hole here here = {!!}
+∈-toExp' ≤ₛ-Z p ()
+∈-toExp' (≤ₛ-S o) (there p) (there i) = {!!}
 
 
 conv : ∀{V M} (x : Fin M) → (p : Pos) → (s : Sub) → Exp V M
@@ -182,6 +193,8 @@ conv-over ≤ₛ-Z = refl
 conv-over {s = S s}{s' = S s'} (≤ₛ-S o) = cong (λ x → S x) (trans (trans (cong (mapPos' (λ p → mvar (there p))) (conv-over o)) 
            (sym (mapPos'-func (λ p → mvar (there p)) (λ p → toExp' p s') (conv' s))))
           (mapPos'-func (λ p → toExp' p (S s')) (λ p → mvar (there p)) (conv' s)))
+          
+--test : mapPos' (λ p → mvar (there p) (e ⟦ₛ s ⟧) ≡ (mapPos' (λ p → mvar (there p)) e) ⟦ₛ S s ⟧  
 
 
 toExp-over : ∀{V}{s s' : Sub}  (p : Pos) → (s ≤ₛ s') → toExp' {V = V} p s'  ≡ toExp' p s ⟦ₛ s' ⟧
@@ -189,7 +202,7 @@ toExp-over here ≤ₛ-hole = refl
 toExp-over (there p) ≤ₛ-hole = refl
 toExp-over here ≤ₛ-Z = refl
 toExp-over (there p) ≤ₛ-Z = refl
-toExp-over here (≤ₛ-S o) = cong S {!!}
+toExp-over here (≤ₛ-S o) = cong S ({!o!})
 toExp-over {V} (there p) (≤ₛ-S o) = let r = toExp-over {V} p o in {!!}
 
 
