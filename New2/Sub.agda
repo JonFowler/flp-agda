@@ -60,6 +60,13 @@ _≤_ = VecI₂ _≤ₛ_
 ≤ₛ-trans ≤ₛ-Z ≤ₛ-Z = ≤ₛ-Z
 ≤ₛ-trans (≤ₛ-S o) (≤ₛ-S o') = ≤ₛ-S (≤ₛ-trans o o')
 
+_≤ₛ-∘_ : ∀{s s' s''} → s' ≤ₛ s'' → s ≤ₛ s' → s ≤ₛ s''
+_≤ₛ-∘_ {s'' = s''} o' (≤ₛ-hole s) = ≤ₛ-hole s''
+_≤ₛ-∘_ ≤ₛ-Z ≤ₛ-Z = ≤ₛ-Z
+_≤ₛ-∘_ (≤ₛ-S o') (≤ₛ-S o) = ≤ₛ-S (o' ≤ₛ-∘ o)
+
+
+
 ≤-refl : ∀{m} {σ : Subs m} → σ ≤ σ
 ≤-refl {σ = []} = []
 ≤-refl {σ = x ∷ σ} = ≤ₛ-refl {x} ∷ ≤-refl
@@ -67,6 +74,10 @@ _≤_ = VecI₂ _≤ₛ_
 ≤-trans : ∀{m} {σ σ' σ'' : Subs m} → σ ≤ σ' → σ' ≤ σ'' → σ ≤ σ''
 ≤-trans [] [] = []
 ≤-trans {suc m}{s ∷ _}{s' ∷ _} (o ∷ os) (o' ∷ os') = ≤ₛ-trans {s}{s'} o o' ∷ ≤-trans os os' 
+
+_≤-∘_ : ∀{m} {σ σ' σ'' : Subs m} → σ' ≤ σ'' → σ ≤ σ' → σ ≤ σ''
+_≤-∘_ [] [] = []
+_≤-∘_ {suc m}{s ∷ _}{s' ∷ _} (o' ∷ os') (o ∷ os) = _≤ₛ-∘_ {s}{s'} o' o ∷ (os' ≤-∘ os)
 
 
 
@@ -112,11 +123,11 @@ _≤_ = VecI₂ _≤ₛ_
 
 
 
---data ValPos : Set where
---  pos : Pos → ValPos
---  Z : ValPos
---  S : ValPos → ValPos
---  
+data ValPos (s : Sub) : Set where
+  pos : Pos s → ValPos s
+  Z : ValPos s
+  S : ValPos s → ValPos s
+  
 --data ValPosI (P : Pos → Set) : ValPos → Set where
 --  S : ∀{vp} → ValPosI P vp → ValPosI P (S vp)
 --  Z : ValPosI P Z
@@ -125,53 +136,52 @@ _≤_ = VecI₂ _≤ₛ_
 --_∈ₚ_ : ValPos → Sub → Set
 --vp ∈ₚ s = ValPosI (λ p' → p' ∈ₛ s) vp
 --  
---_=<<_ : (Pos → ValPos) → ValPos → ValPos
---_=<<_ f (pos x) = f x
---_=<<_ f Z = Z
---_=<<_ f (S vp) = S (f =<< vp)
---
---return : Pos → ValPos
---return = pos
---
---left-ret : (vp : ValPos) → return =<< vp ≡ vp
---left-ret (pos x) = refl
---left-ret Z = refl
---left-ret (S vp) = cong S (left-ret vp)
---
---right-ret : (f : Pos → ValPos) → (p : Pos) → f =<< return p ≡ f p
---right-ret f p = refl
---
---=<<-assoc : (f g : Pos → ValPos) → (vp : ValPos) → f =<< (g =<< vp) ≡ (λ p → f =<< g p) =<< vp
---=<<-assoc f g (pos x) = refl
---=<<-assoc f g Z = refl
---=<<-assoc f g (S vp) = cong S (=<<-assoc f g vp)
---
---_=<<I_ : ∀{vp P Q}{f : Pos → ValPos} →  ({p : Pos} → P p → ValPosI Q (f p)) → ValPosI P vp → ValPosI Q (f =<< vp)
---_=<<I_ f (S p) = S (f =<<I p)
---_=<<I_ f Z = Z
---_=<<I_ f (pos x) = f x
---
---posThere : Pos → ValPos
---posThere p = pos (there p)
---
---conv : Sub → ValPos
---conv hole = pos here
---conv Z = Z
---conv (S s) = S (posThere =<< conv s)
---
---∈-conv : (s : Sub) → conv s ∈ₚ s
---∈-conv hole = pos here
---∈-conv Z = Z
---∈-conv (S s) = S ((λ p → pos (there p)) =<<I (∈-conv s))
---
---toValPos : ∀{s s' p} → p ∈ₛ s → s ≤ₛ s' → ValPos
---toValPos here (≤ₛ-hole s) = conv s
---toValPos (there p) (≤ₛ-S o) = posThere =<< toValPos p o
---
---∈-toValPos : ∀{s s' p} → (i : p ∈ₛ s) → (o : s ≤ₛ s') → toValPos i o ∈ₚ s'
---∈-toValPos here (≤ₛ-hole s) = ∈-conv s
---∈-toValPos (there i) (≤ₛ-S o) = (λ p → pos (there p)) =<<I ∈-toValPos i o
+_=<<_ : ∀{s s'} → (Pos s → ValPos s') → ValPos s → ValPos s'
+_=<<_ f (pos x) = f x
+_=<<_ f Z = Z
+_=<<_ f (S vp) = S (f =<< vp)
 
---toValPos-ord : ∀{s s' s'' p} → (i : p ∈ₛ s) → (o : s ≤ₛ s') → (o' : s' ≤ₛ s'') 
---          → (λ p → toValPos (∈-toValPos i o)) >>= (toValPos i o)
---toValPos-ord = ?
+return : ∀{s} → Pos s → ValPos s
+return = pos
+
+left-ret : ∀{s} → (vp : ValPos s) → return =<< vp ≡ vp
+left-ret (pos x) = refl
+left-ret Z = refl
+left-ret (S vp) = cong S (left-ret vp)
+
+right-ret : ∀{s s'} (f : Pos s → ValPos s') → (p : Pos s) → f =<< return p ≡ f p
+right-ret f p = refl
+
+=<<-assoc : ∀{s s' s''} (f : Pos s → ValPos s') → (g : Pos s' → ValPos s'') → (vp : ValPos s) → g =<< (f =<< vp) ≡ (λ p → g =<< f p) =<< vp
+=<<-assoc f g (pos x) = refl
+=<<-assoc f g Z = refl
+=<<-assoc f g (S vp) = cong S (=<<-assoc f g vp)
+
+posThere : ∀{s} → Pos s → ValPos (S s)
+posThere p = pos (there p)
+
+conv : (s : Sub)  → ValPos s
+conv hole = pos here
+conv Z = Z
+conv (S s) = S (posThere =<< conv s)
+
+toValPos : ∀{s s'} → Pos s → s ≤ₛ s' → ValPos s'
+toValPos here (≤ₛ-hole s) = conv s
+toValPos (there p) (≤ₛ-S o) = posThere =<< toValPos p o
+
+toValPos-refl : ∀{s} → (p : Pos s) → (o : s ≤ₛ s) → toValPos p o ≡ pos p 
+toValPos-refl here (≤ₛ-hole .hole) = refl
+toValPos-refl (there p) (≤ₛ-S o) = cong (_=<<_ posThere) (toValPos-refl p o)
+
+toValPos-ord : ∀{s s' s''} → (p : Pos s) → (o : s ≤ₛ s') → (o' : s' ≤ₛ s'') 
+          → (λ p' → toValPos p' o') =<< (toValPos p o) ≡ toValPos p (o' ≤ₛ-∘ o)
+toValPos-ord here (≤ₛ-hole hole) (≤ₛ-hole s) = refl
+toValPos-ord here (≤ₛ-hole Z) ≤ₛ-Z = refl
+toValPos-ord here (≤ₛ-hole (S s)) (≤ₛ-S o') = 
+  cong S (trans (=<<-assoc posThere (λ p' → toValPos p' (≤ₛ-S o')) (conv s)) 
+         (trans (sym (=<<-assoc (λ p' → toValPos p' o') posThere (conv s))) 
+         (cong (_=<<_ posThere) (toValPos-ord here (≤ₛ-hole s) o'))))
+toValPos-ord (there p) (≤ₛ-S o) (≤ₛ-S o') = 
+  trans (=<<-assoc posThere (λ p' → toValPos p' (≤ₛ-S o')) (toValPos p o)) 
+  (trans (sym (=<<-assoc (λ p' → toValPos p' o') posThere (toValPos p o))) 
+  (cong (_=<<_ posThere) (toValPos-ord p o o')))
