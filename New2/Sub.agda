@@ -65,6 +65,10 @@ _≤ₛ-∘_ {s'' = s''} o' (≤ₛ-hole s) = ≤ₛ-hole s''
 _≤ₛ-∘_ ≤ₛ-Z ≤ₛ-Z = ≤ₛ-Z
 _≤ₛ-∘_ (≤ₛ-S o') (≤ₛ-S o) = ≤ₛ-S (o' ≤ₛ-∘ o)
 
+≤ₛ-uniq : ∀{s s'} → (o : s ≤ₛ s') → (o' : s ≤ₛ s') → o ≡ o' 
+≤ₛ-uniq (≤ₛ-hole s) (≤ₛ-hole .s) = refl
+≤ₛ-uniq ≤ₛ-Z ≤ₛ-Z = refl
+≤ₛ-uniq (≤ₛ-S o) (≤ₛ-S o') = cong ≤ₛ-S (≤ₛ-uniq o o') 
 
 
 ≤-refl : ∀{m} {σ : Subs m} → σ ≤ σ
@@ -124,7 +128,7 @@ _≤-∘_ {suc m}{s ∷ _}{s' ∷ _} (o' ∷ os') (o ∷ os) = _≤ₛ-∘_ {s}{
 
 
 data ValPos (s : Sub) : Set where
-  pos : Pos s → ValPos s
+  pos : (p : Pos s) → ValPos s
   Z : ValPos s
   S : ValPos s → ValPos s
   
