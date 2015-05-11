@@ -83,13 +83,24 @@ _≤-∘_ : ∀{m} {σ σ' σ'' : Subs m} → σ' ≤ σ'' → σ ≤ σ' → σ
 _≤-∘_ [] [] = []
 _≤-∘_ {suc m}{s ∷ _}{s' ∷ _} (o' ∷ os') (o ∷ os) = _≤ₛ-∘_ {s}{s'} o' o ∷ (os' ≤-∘ os)
 
+_[_↠_] : (s : Sub) →  (Pos s) → Sub → Sub
+_[_↠_] hole here s' = s'
+_[_↠_] (S s) (there p) s' = S  (s [ p ↠ s' ])
 
+_+ₚ_ : ∀{s s'} → (p : Pos s) → (p' : Pos s') → Pos (s [ p ↠ s' ])
+here +ₚ p' = p'
+there p +ₚ p' = there (p +ₚ p')
 
---updateS : Sub → Pos → Sub → Sub
---updateS s here s' = s 
---updateS s (there p) (S n) = S (updateS s p n)
---updateS s (there p) a  = hole
---
+minimal : Sub → Set
+minimal Z = Unit
+minimal (S hole) = Unit
+minimal _ = ⊥ 
+
+ordS :   (s : Sub) → (p : Pos s) → (s' : Sub)  → s ≤ₛ s [ p ↠ s' ]
+ordS hole here s' = ≤ₛ-hole s'
+ordS Z () s'
+ordS (S s) (there p) s' = ≤ₛ-S (ordS s p s')
+
 --lookupS : Pos → Sub → Sub
 --lookupS here s = s
 --lookupS (there p) (S s) = lookupS p s

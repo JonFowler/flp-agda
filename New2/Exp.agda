@@ -133,77 +133,14 @@ e ⟦ σ ⟧ =  (λ x p → fromValPos x (toValPos p (lookupI₂ x σ))) =<<E e
         ((λ x p → trans (fromValPos-func x (λ x' p' → toValPos p' (lookupI₂ x' o'))  (toValPos p (lookupI₂ x o))) 
                          (cong (fromValPos x) (
                   let r = toValPos-ord p (lookupI₂ x o) (lookupI₂ x o') in trans r (cong (toValPos p) (≤ₛ-uniq (lookupI₂ x o' ≤ₛ-∘ lookupI₂ x o) (lookupI₂ x (o' ≤-∘ o))))))) 
-                =<<E-eq e) -- {!!} =<<E-eq e
---⟦⟧-ord (mvar x p) o o' = {!!} -- cong (fromValPos x) {!!}
+                =<<E-eq e) 
 
 
---_⟦ₛ_⟧ : ∀{V} → (e : Exp' V) → (τ : Sub) → Exp' V
---e ⟦ₛ σ ⟧ = mapPos' (λ p → toExp' p σ) e
-----Z ⟦ₛ σ ⟧ = Z
-----S e ⟦ₛ σ ⟧ = S (e ⟦ₛ σ ⟧)
-----var x ⟦ₛ σ ⟧ = var x
-----mvar p ⟦ₛ σ ⟧ = toExp' p σ 
-----(case e alt₀ e₁ altₛ e₂) ⟦ₛ σ ⟧ = case e ⟦ₛ σ ⟧ alt₀ e₁ ⟦ₛ σ ⟧ altₛ e₂ ⟦ₛ σ ⟧
---
---subs-over : ∀{V} {σ τ : Sub} → σ ≤ₛ τ → (e : Exp' V) → e ⟦ₛ τ ⟧ ≡ (e ⟦ₛ σ ⟧) ⟦ₛ τ ⟧
---subs-over o Z = refl
---subs-over o (S e) = cong S (subs-over o e)
---subs-over o (var x) = refl
---subs-over o (mvar p) = {!!} --  (lookupS-mono p (lookupI₂ x o)) refl 
---subs-over o (case e alt₀ e₁ altₛ e₂) = cong₃ case_alt₀_altₛ_ (subs-over o e) (subs-over o e₁) (subs-over o e₂)
---
-----conv-there : ∀{V s s'} → (conv' {V = V} s) ⟦ₛ S s' ⟧ ≡ mapPos' there (conv' s ⟦ₛ s' ⟧)
-----conv-there {s = hole} = refl
-----conv-there {s = Z} = refl
-----conv-there {s = S s}{s' = s'} = cong S {!!}
---
---conv-over : ∀{V s s'} → s ≤ₛ s' → (conv' {V} s') ≡ (conv' s) ⟦ₛ s' ⟧
---conv-over ≤ₛ-hole = refl
---conv-over ≤ₛ-Z = refl
---conv-over {s = S s}{s' = S s'} (≤ₛ-S o) = cong (λ x → S x) (trans (trans (cong (mapPos' (λ p → mvar (there p))) (conv-over o)) 
---           (sym (mapPos'-func (λ p → mvar (there p)) (λ p → toExp' p s') (conv' s))))
---          (mapPos'-func (λ p → toExp' p (S s')) (λ p → mvar (there p)) (conv' s)))
---          
-----test : mapPos' (λ p → mvar (there p) (e ⟦ₛ s ⟧) ≡ (mapPos' (λ p → mvar (there p)) e) ⟦ₛ S s ⟧  
---
---
---toExp-over : ∀{V}{s s' : Sub}  (p : Pos) → (s ≤ₛ s') → toExp' {V = V} p s'  ≡ toExp' p s ⟦ₛ s' ⟧
---toExp-over here ≤ₛ-hole = refl
---toExp-over (there p) ≤ₛ-hole = refl
---toExp-over here ≤ₛ-Z = refl
---toExp-over (there p) ≤ₛ-Z = refl
---toExp-over here (≤ₛ-S o) = cong S ({!o!})
---toExp-over {V} (there p) (≤ₛ-S o) = let r = toExp-over {V} p o in {!!}
-
-
-
---_⟦_⟧ : ∀{V M}{σ τ : Subs M} → (e : Exp V M) → (σ ≤ τ) → Exp V M
---_⟦_⟧ {τ = τ} e o = e ⟦ₛ τ ⟧
---
---conv-over : ∀{V M} {τ : Subs M}{x : Fin M} {s s' : Sub}  (p : Pos) → (s ≤ₛ s') → s' ≡ lookupS p (lookup x τ) → conv {V = V} x p s' ≡ conv x p s ⟦ₛ τ ⟧
---conv-over {x = x} p ≤ₛ-hole eq = cong (conv x p) eq
---conv-over p ≤ₛ-Z eq = refl
---conv-over p (≤ₛ-S o) eq = cong S (conv-over (there p) o (there-lookupS p eq))
---
---∈-conv : ∀{V M}{σ : Subs M}{x : Fin M}{s : Sub}{p : Pos} → p ∈ₛ s →  s ≡ lookupS p (lookup x σ) → conv {V = V} x p s ∈E σ
---∈-conv {s = hole} here i = mvar (subst (λ x → here ∈ₛ x) i here) 
---∈-conv {s = Z} p i = Z
---∈-conv {s = S s} (there p') i = S (∈-conv {!!} {!!})
-----(let eq = there-lookupS p i in ∈-conv {p = there p} (there p') ?)
---
-
---subs-order : ∀{V M} {σ σ' σ'' : Subs M} → (o : σ ≤ σ') → (o' : σ' ≤ σ'') → 
---             (e : Exp V M) → e ⟦ ≤-trans o o' ⟧ ≡ (e ⟦ o ⟧) ⟦ o' ⟧
---subs-order o o' = subs-over o'
---
---
---∈-subs : ∀{V M}{σ σ' : Subs M}{e : Exp V M} → e ∈E σ → (o : σ ≤ σ') → e ⟦ o ⟧ ∈E σ'
---∈-subs Z o = Z
---∈-subs (S e) o = S (∈-subs e o)
---∈-subs var o = var
---∈-subs (mvar x₁) o = {!!}
---∈-subs (case e₁ alt₀ e₂ altₛ e₃) o = case ∈-subs e₁ o alt₀ ∈-subs e₂ o altₛ ∈-subs e₃ o
-
+data _⇝⟨_⟩⇝_ {m V : ℕ}{σ : Subs m} : {σ' : Subs m} → Exp V σ → σ ≤ σ' → Exp V σ' → Set where
+   bindZ : (x : Fin m) → (p : Pos (lookup x σ)) → (mvar x p) ⇝⟨ {!!} ⟩⇝ Z
+   bindS : (x : Fin m) → (p : Pos (lookup x σ)) → (mvar x p) ⇝⟨ {!!} ⟩⇝ S (mvar x {!!}) 
+--   bindS :                    (mvar x p S) (p +ₚ there here)
+  
 
  
  
