@@ -13,6 +13,9 @@ open import VecI
 open import Sub
 open import Helpful
 
+MVar : ∀{m} (σ : Subs m) → Set
+MVar {m} σ = Σ (Fin m) (λ x → Pos (lookup x σ))
+
 data Exp {M : ℕ} (V : ℕ) (σ : Subs M) : Set where
   Z : Exp V σ 
   S :  Exp V σ → Exp V σ
@@ -136,9 +139,10 @@ e ⟦ σ ⟧ =  (λ x p → fromValPos x (toValPos p (lookupI₂ x σ))) =<<E e
                 =<<E-eq e) 
 
 
-data _⇝⟨_⟩⇝_ {m V : ℕ}{σ : Subs m} : {σ' : Subs m} → Exp V σ → σ ≤ σ' → Exp V σ' → Set where
-   bindZ : (x : Fin m) → (p : Pos (lookup x σ)) → (mvar x p) ⇝⟨ {!!} ⟩⇝ Z
-   bindS : (x : Fin m) → (p : Pos (lookup x σ)) → (mvar x p) ⇝⟨ {!!} ⟩⇝ S (mvar x {!!}) 
+--data _⇥|_,_| {m V : ℕ}{σ : Subs m} : Exp V σ → (x : Fin m) → (p : Pos (lookup x σ)) → Set where
+--    susp : (x : Fin m) → (p : Pos (lookup x σ)) → mvar x p ⇥|_,_|
+--   bindZ : (x : Fin m) → (p : Pos (lookup x σ)) → (mvar x p) ⇝⟨ {!!} ⟩⇝ Z
+--   bindS : (x : Fin m) → (p : Pos (lookup x σ)) → (mvar x p) ⇝⟨ {!!} ⟩⇝ S (mvar x {!!}) 
 --   bindS :                    (mvar x p S) (p +ₚ there here)
   
 

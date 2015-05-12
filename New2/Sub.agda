@@ -40,6 +40,39 @@ Inp hole = ⊥
 Inp Z = Unit
 Inp (S s) = Inp s
 
+--Bind : Sub → Set
+--Bind s = (p : Pos s) → Sub
+
+data Bind : Sub → Set where
+  b-hole : (s : Sub) → Bind hole
+  b-Z : Bind Z
+  b-S : ∀{s} → (b : Bind s) → Bind (S s) 
+
+b-refl : ∀{s} → Bind s
+b-refl {hole} = b-hole hole
+b-refl {Z} = b-Z
+b-refl {S s} = b-S b-refl
+
+_⟦ₛ_⟧ : (s : Sub) → Bind s → Sub
+hole ⟦ₛ b-hole s ⟧ = s 
+Z ⟦ₛ b-Z ⟧ = Z 
+S s ⟦ₛ b-S b ⟧ = S (s ⟦ₛ b ⟧)
+
+_∶-_ : ∀{s} (b : Bind s) → (b' : Bind (s ⟦ₛ b ⟧)) → Bind s
+b-hole s ∶- b' = b-hole (s ⟦ₛ b' ⟧)
+b-Z ∶- b-Z = b-Z
+b-S b ∶- b-S b' = b-S (b ∶- b')
+
+⟦ₛ⟧-func : (s : Sub) → (b : Bind s) → (b' : Bind (s ⟦ₛ b ⟧)) → s ⟦ₛ b ⟧ ⟦ₛ b' ⟧ ≡ s ⟦ₛ b ∶- b' ⟧
+⟦ₛ⟧-func hole (b-hole s) b' = refl 
+⟦ₛ⟧-func Z b-Z b-Z = refl  
+⟦ₛ⟧-func (S s) (b-S b) (b-S b') = cong S (⟦ₛ⟧-func s b b') 
+
+⟦ₛ⟧-refl : ∀{s} → s ⟦ₛ b-refl ⟧ ≡ s
+⟦ₛ⟧-refl {hole} = refl
+⟦ₛ⟧-refl {Z} = refl
+⟦ₛ⟧-refl {S s} = cong S ⟦ₛ⟧-refl 
+
 
 data _≤ₛ_ : Sub → Sub → Set where
   ≤ₛ-hole : (s : Sub) → hole ≤ₛ s 
@@ -180,9 +213,17 @@ conv hole = pos here
 conv Z = Z
 conv (S s) = S (posThere =<< conv s)
 
+--toValPos : ∀{s} → (p : Pos s) → (b : Bind s) → ValPos (s ⟦ₛ b ⟧)
+--toValPos here (b-hole s) = conv s
+--toValPos (there p) (b-S b) = posThere =<< toValPos p b
+
 toValPos : ∀{s s'} → Pos s → s ≤ₛ s' → ValPos s'
 toValPos here (≤ₛ-hole s) = conv s
 toValPos (there p) (≤ₛ-S o) = posThere =<< toValPos p o
+
+--toValPos-refl : ∀{s} → (p : Pos s) → toValPos p b-refl ≡ pos ? 
+--toValPos-refl here (≤ₛ-hole .hole) = refl
+--toValPos-refl (there p) (≤ₛ-S o) = cong (_=<<_ posThere) (toValPos-refl p o)
 
 toValPos-refl : ∀{s} → (p : Pos s) → (o : s ≤ₛ s) → toValPos p o ≡ pos p 
 toValPos-refl here (≤ₛ-hole .hole) = refl
