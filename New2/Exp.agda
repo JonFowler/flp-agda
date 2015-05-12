@@ -171,13 +171,13 @@ data _⇝_ {m V : ℕ}{σ : Subs m} : {σ' : Subs m} → Exp V σ → Exp V σ' 
 ⇝-mono (narrS x x₁) = x / S hole
 ⇝-mono (red x) = ≤-refl
 
-data _⇝*_ {m V}{σ : Subs m} : {σ' : Subs m} → Exp V σ → Exp V σ' → Set  where
-  [] : ∀{e} → e ⇝* e
-  _∷_ : ∀{σ' σ'' e}{e' : Exp V σ'}{e'' : Exp V σ''} →  e ⇝ e' → e' ⇝* e'' → e ⇝* e''
+data _⇝!_ {m V}{σ : Subs m} : {σ' : Subs m} → Exp V σ → Exp V σ' → Set  where
+  [] : ∀{e σ'} → (o : σ ≤ σ') → e ⇝! e ⟦ o ⟧
+  _∷_ : ∀{σ' σ'' e}{e' : Exp V σ'}{e'' : Exp V σ''} →  e ⇝ e' → e' ⇝! e'' → e ⇝! e''
 
-⇝*-mono : ∀{V m}{σ σ' : Subs m}{e : Exp V σ}{e' : Exp V σ'} → e ⇝* e' → σ ≤ σ'
-⇝*-mono [] = ≤-refl
-⇝*-mono (x ∷ r) = ⇝*-mono r ≤-∘ ⇝-mono x
+⇝!-mono : ∀{V m}{σ σ' : Subs m}{e : Exp V σ}{e' : Exp V σ'} → e ⇝! e' → σ ≤ σ'
+⇝!-mono ([] o) = o 
+⇝!-mono (x ∷ r) = ⇝!-mono r ≤-∘ ⇝-mono x
 
 sucExp-fromVP : {V' m : ℕ}{σ : Subs m}(V : ℕ) → (x : Fin m) →  (vp : ValPos (lookup x σ))    →  sucExp {V'} V (fromValPos x vp) ≡ fromValPos x vp
 sucExp-fromVP V x (pos p) = refl
@@ -217,18 +217,46 @@ rep-func V (case e alt₀ e₁ altₛ e₂) e' o = cong₃ case_alt₀_altₛ_ (
        (caseS (e ⟦ o ⟧) (e₀ ⟦ o ⟧) (eₛ ⟦ o ⟧))
 ↦-lift (prom r) o = prom (↦-lift r o)
 
-⇝*-sound : ∀{m V}{σ σ' : Subs m}{e : Exp V σ}{e' : Exp V σ'} → (r : e ⇝* e') → e ⟦ ⇝*-mono r ⟧ ↦* e'
-⇝*-sound {e = e} [] =  subst (λ x →  x ↦* e)  (sym (⟦⟧-refl (≤-refl))) []
-⇝*-sound {e = e}{e'} (narrZ x s ∷ r) = subst (λ e → e ↦* e') 
-            (⟦⟧-func e (x / Z) (⇝*-mono r)) (⇝*-sound r) 
-⇝*-sound {e = e}{e'} (narrS x s ∷ r) = subst (λ e → e ↦* e') 
-            (⟦⟧-func e (x / S hole) (⇝*-mono r)) (⇝*-sound r)
-⇝*-sound (_∷_ {e = e}{e'}{e''} (red r) r*) = let 
-      eq1 = sym (cong (λ e → e ⟦ ⇝*-mono r* ⟧) (⟦⟧-refl {e = e} ≤-refl))
-      eq2 = ⟦⟧-func e ≤-refl (⇝*-mono r*)
-      r' = (↦-lift r (⇝*-mono r*))
-      r'' = subst (λ e → e ↦ e' ⟦ ⇝*-mono r* ⟧) (trans eq1 eq2) r'
-     in r'' ∷ ⇝*-sound r*
+↦*-lift : ∀{m V}{σ σ' : Subs m}{e e' : Exp V σ} → e ↦* e' → (o : σ ≤ σ') → e ⟦ o ⟧ ↦* e' ⟦ o ⟧
+↦*-lift [] o = []
+↦*-lift (x ∷ r) o = ↦-lift x o ∷ ↦*-lift r o
+
+⇝!-sound : ∀{m V}{σ σ' : Subs m}{e : Exp V σ}{e' : Exp V σ'} → (r : e ⇝! e') → e ⟦ ⇝!-mono r ⟧ ↦* e'
+⇝!-sound {e = e} ([] o) = [] 
+⇝!-sound {e = e}{e'} (narrZ x s ∷ r) = subst (λ e → e ↦* e') 
+            (⟦⟧-func e (x / Z) (⇝!-mono r)) (⇝!-sound r) 
+⇝!-sound {e = e}{e'} (narrS x s ∷ r) = subst (λ e → e ↦* e') 
+            (⟦⟧-func e (x / S hole) (⇝!-mono r)) (⇝!-sound r)
+⇝!-sound (_∷_ {e = e}{e'}{e''} (red r) r*) = let 
+      eq1 = sym (cong (λ e → e ⟦ ⇝!-mono r* ⟧) (⟦⟧-refl {e = e} ≤-refl))
+      eq2 = ⟦⟧-func e ≤-refl (⇝!-mono r*)
+      r' = (↦-lift r (⇝!-mono r*))
+      r'' = subst (λ e → e ↦ e' ⟦ ⇝!-mono r* ⟧) (trans eq1 eq2) r'
+     in r'' ∷ ⇝!-sound r*
+     
+↦-NotFromVal : ∀{m V}{σ : Subs m}{e' : Exp V σ} → (x : Fin m) → (vp : ValPos (lookup x σ)) →  ¬ (fromValPos x vp ↦ e')
+↦-NotFromVal x (pos p) ()
+↦-NotFromVal x Z ()
+↦-NotFromVal x (S vp) ()
+
+
+⇝-complete : ∀{m V}{σ σ' : Subs m}{e' : Exp V σ'}{e : Exp V σ} → (o : σ ≤ σ') → e ⟦ o ⟧ ↦ e' → e ⇝! e' 
+⇝-complete {e} o r = {!!}
+
+⇝!-complete : ∀{m V}{σ σ' : Subs m}{e' : Exp V σ'}{e : Exp V σ} → (o : σ ≤ σ') → e ⟦ o ⟧ ↦* e' → e ⇝! e' 
+⇝!-complete {e = e} o [] = [] o
+⇝!-complete {e = Z} o (() ∷ r)
+⇝!-complete {e = S e} o (() ∷ r)
+⇝!-complete {e = var x} o (() ∷ r)
+⇝!-complete {e = mvar (x , p)} o (x₁ ∷ r) =  ⊥-elim (↦-NotFromVal x (toValPos p (lookupI₂ x o)) x₁)
+⇝!-complete {e = case Z alt₀ e₁ altₛ e₂} o (x ∷ r) = {!!}
+⇝!-complete {e = case S e alt₀ e₁ altₛ e₂} o (x ∷ r) = {!!}
+⇝!-complete {e = case var x alt₀ e₁ altₛ e₂} o (prom () ∷ r)
+⇝!-complete {e = case mvar x alt₀ e₁ altₛ e₂} o (x₁ ∷ r) = {!!}
+⇝!-complete {e = case case e alt₀ e₁ altₛ e₂ alt₀ e₃ altₛ e₄} o (prom r ∷ r*) with ⇝!-complete {e = case e alt₀ e₁ altₛ e₂} o (r ∷ [])
+⇝!-complete {m} {V} {σ} {σ'} {e'} {case case e alt₀ e₁ altₛ e₂ alt₀ e₃ altₛ e₄} o (prom r ∷ r*) | [] o₁ = ⇝!-complete {!!} {!!} -- (↦*-lift {!r*!} {!!})
+⇝!-complete {m} {V} {σ} {σ''} {e''} {case case e alt₀ e₁ altₛ e₂ alt₀ e₃ altₛ e₄} o (prom r ∷ r*) | x ∷ r' = {!!}
+          
 
 
 --   bindZ : (x : Fin m) → (p : Pos (lookup x σ)) → (mvar x p) ⇝⟨ {!!} ⟩⇝ Z
