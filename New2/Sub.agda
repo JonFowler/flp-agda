@@ -116,23 +116,25 @@ _≤-∘_ : ∀{m} {σ σ' σ'' : Subs m} → σ' ≤ σ'' → σ ≤ σ' → σ
 _≤-∘_ [] [] = []
 _≤-∘_ {suc m}{s ∷ _}{s' ∷ _} (o' ∷ os') (o ∷ os) = _≤ₛ-∘_ {s}{s'} o' o ∷ (os' ≤-∘ os)
 
-_[_↠_] : (s : Sub) →  (Pos s) → Sub → Sub
-_[_↠_] hole here s' = s'
-_[_↠_] (S s) (there p) s' = S  (s [ p ↠ s' ])
+_[_//ₛ_] : (s : Sub) →  (Pos s) → Sub → Sub
+_[_//ₛ_] hole here s' = s'
+_[_//ₛ_] (S s) (there p) s' = S  (s [ p //ₛ s' ])
 
-_+ₚ_ : ∀{s s'} → (p : Pos s) → (p' : Pos s') → Pos (s [ p ↠ s' ])
+_+ₚ_ : ∀{s s'} → (p : Pos s) → (p' : Pos s') → Pos (s [ p //ₛ s' ])
 here +ₚ p' = p'
 there p +ₚ p' = there (p +ₚ p')
+
 
 minimal : Sub → Set
 minimal Z = Unit
 minimal (S hole) = Unit
 minimal _ = ⊥ 
 
-ordS :   (s : Sub) → (p : Pos s) → (s' : Sub)  → s ≤ₛ s [ p ↠ s' ]
-ordS hole here s' = ≤ₛ-hole s'
-ordS Z () s'
-ordS (S s) (there p) s' = ≤ₛ-S (ordS s p s')
+_/ₛ_ :   {s : Sub} → (p : Pos s) → (s' : Sub)  → s ≤ₛ s [ p //ₛ s' ]
+here /ₛ s' = ≤ₛ-hole s'
+(there p) /ₛ s' = ≤ₛ-S (p /ₛ s')
+
+
 
 --lookupS : Pos → Sub → Sub
 --lookupS here s = s
@@ -229,15 +231,15 @@ toValPos-refl : ∀{s} → (p : Pos s) → (o : s ≤ₛ s) → toValPos p o ≡
 toValPos-refl here (≤ₛ-hole .hole) = refl
 toValPos-refl (there p) (≤ₛ-S o) = cong (_=<<_ posThere) (toValPos-refl p o)
 
-toValPos-ord : ∀{s s' s''} → (p : Pos s) → (o : s ≤ₛ s') → (o' : s' ≤ₛ s'') 
+toValPos-func : ∀{s s' s''} → (p : Pos s) → (o : s ≤ₛ s') → (o' : s' ≤ₛ s'') 
           → (λ p' → toValPos p' o') =<< (toValPos p o) ≡ toValPos p (o' ≤ₛ-∘ o)
-toValPos-ord here (≤ₛ-hole hole) (≤ₛ-hole s) = refl
-toValPos-ord here (≤ₛ-hole Z) ≤ₛ-Z = refl
-toValPos-ord here (≤ₛ-hole (S s)) (≤ₛ-S o') = 
+toValPos-func here (≤ₛ-hole hole) (≤ₛ-hole s) = refl
+toValPos-func here (≤ₛ-hole Z) ≤ₛ-Z = refl
+toValPos-func here (≤ₛ-hole (S s)) (≤ₛ-S o') = 
   cong S (trans (=<<-assoc posThere (λ p' → toValPos p' (≤ₛ-S o')) (conv s)) 
          (trans (sym (=<<-assoc (λ p' → toValPos p' o') posThere (conv s))) 
-         (cong (_=<<_ posThere) (toValPos-ord here (≤ₛ-hole s) o'))))
-toValPos-ord (there p) (≤ₛ-S o) (≤ₛ-S o') = 
+         (cong (_=<<_ posThere) (toValPos-func here (≤ₛ-hole s) o'))))
+toValPos-func (there p) (≤ₛ-S o) (≤ₛ-S o') = 
   trans (=<<-assoc posThere (λ p' → toValPos p' (≤ₛ-S o')) (toValPos p o)) 
   (trans (sym (=<<-assoc (λ p' → toValPos p' o') posThere (toValPos p o))) 
-  (cong (_=<<_ posThere) (toValPos-ord p o o')))
+  (cong (_=<<_ posThere) (toValPos-func p o o')))
