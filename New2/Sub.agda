@@ -2,12 +2,16 @@ module Sub where
 
 open import Data.Unit hiding (_≤_)
 open import Data.Empty
+open import Data.Product
 open import Data.Nat hiding (_≤_)
 open import Data.Fin hiding (_≤_)
 open import VecI
 open import Function
 open import Data.Vec
 open import Relation.Binary.PropositionalEquality
+
+postulate ext : ∀ {A B : Set} {f g : A → B} → ({x : A} → f x ≡ g x) → f ≡ g
+
 
 data Nat (A : Set) : Set where
   Z : Nat A
@@ -116,14 +120,43 @@ _≤-∘_ : ∀{m} {σ σ' σ'' : Subs m} → σ' ≤ σ'' → σ ≤ σ' → σ
 _≤-∘_ [] [] = []
 _≤-∘_ {suc m}{s ∷ _}{s' ∷ _} (o' ∷ os') (o ∷ os) = _≤ₛ-∘_ {s}{s'} o' o ∷ (os' ≤-∘ os)
 
+≤-uniq : ∀{m}{σ σ' : Subs m} → (o : σ ≤ σ') → (o' : σ ≤ σ') → o ≡ o' 
+≤-uniq [] [] = refl
+≤-uniq (x ∷ o) (x₁ ∷ o') = cong₂ (_∷_) (≤ₛ-uniq x x₁) (≤-uniq o o')
+
+_[ₛ_] : {s s' : Sub} → (b : s ≤ₛ s') → Pos s → Sub
+≤ₛ-hole s [ₛ here ] = s
+≤ₛ-S b [ₛ there p ] = b [ₛ p ]
+
+[ₛ]-refl : ∀{s} → (b : s ≤ₛ s) → (p : Pos s) →  b [ₛ p ] ≡ hole
+[ₛ]-refl (≤ₛ-hole .hole) here = refl
+[ₛ]-refl (≤ₛ-S b) (there p) = [ₛ]-refl b p
+
 _[_//ₛ_] : (s : Sub) →  (Pos s) → Sub → Sub
 _[_//ₛ_] hole here s' = s'
 _[_//ₛ_] (S s) (there p) s' = S  (s [ p //ₛ s' ])
 
-_+ₚ_ : ∀{s s'} → (p : Pos s) → (p' : Pos s') → Pos (s [ p //ₛ s' ])
-here +ₚ p' = p'
-there p +ₚ p' = there (p +ₚ p')
+_+⟨_,_⟩_ : ∀{s s' s''} → (p : Pos s) → (b : s ≤ₛ s') → (b [ₛ p ] ≡ s'') → (p' : Pos s'') → Pos s'
+here +⟨ ≤ₛ-hole s , refl ⟩ p' = p' -- p'
+there p +⟨ ≤ₛ-S b , eq ⟩ p' = there (p +⟨ b , eq ⟩ p') -- there (p +ₚ p')
 
+
+
+addp : ∀{s s'} → (p : Pos s) → (b : s ≤ₛ s') → (p' : Pos (b [ₛ p ])) → Pos s'
+addp here (≤ₛ-hole s) p' = p'
+addp (there p) (≤ₛ-S b) p' = there (addp p b p')
+
+addp2 : ∀{s s' s''} → (p : Pos s) → (b : s ≤ₛ s') → (b [ₛ p ] ≡ s'') → (p' : Pos s'') → Pos s'
+addp2 p b refl p' = addp p b p'
+
+addp-refl : ∀{s} → (p : Pos s) → (b : s ≤ₛ s) → (p' : Pos (b [ₛ p ])) → addp p b p' ≡ p
+addp-refl here (≤ₛ-hole .hole) here = refl
+addp-refl (there p) (≤ₛ-S b) p' = cong there (addp-refl p b p')
+
+
++⟨⟩-refl : ∀{s} → (p : Pos s) → (b : s ≤ₛ s) → (p' : Pos hole) → p +⟨ b , [ₛ]-refl b p ⟩ p' ≡ p
++⟨⟩-refl here (≤ₛ-hole .hole) here = refl
++⟨⟩-refl (there p) (≤ₛ-S b) p' = cong there (+⟨⟩-refl p b p')
 
 minimal : Sub → Set
 minimal Z = Unit
@@ -220,26 +253,63 @@ conv (S s) = S (posThere =<< conv s)
 --toValPos (there p) (b-S b) = posThere =<< toValPos p b
 
 toValPos : ∀{s s'} → Pos s → s ≤ₛ s' → ValPos s'
-toValPos here (≤ₛ-hole s) = conv s
-toValPos (there p) (≤ₛ-S o) = posThere =<< toValPos p o
+toValPos p b = (λ p' → pos (p +⟨ b , refl ⟩ p')) =<< conv (b [ₛ p ])
 
---toValPos-refl : ∀{s} → (p : Pos s) → toValPos p b-refl ≡ pos ? 
---toValPos-refl here (≤ₛ-hole .hole) = refl
+--toValPos here (≤ₛ-hole s) = conv s
+--toValPos (there p) (≤ₛ-S o) = _+ₚ_ p =<< toValPos p o
+
+
+Test : ∀{s} (p : Pos s) → (b : s ≤ₛ s) → Set
+Test p b = Σ Sub (λ s → b [ₛ p ] ≡ s)
+
+J : {A : Set}{a b : A}(C : (a : A) → (b : A) → (a ≡ b) → Set) → (o : a ≡ b) → C a a refl → C a b o
+J C refl c = c
+
+test'' : ∀{s} → (p : Pos s) → (b : s ≤ₛ s) → Test p b 
+test'' p b = (b [ₛ p ]) , refl
+
+test''' : ∀{s} → (p : Pos s) → (b : s ≤ₛ s) → Test p b 
+test''' p b = hole , ([ₛ]-refl b p)
+
+twotests :  ∀{s} → (p : Pos s) → (b : s ≤ₛ s) → test'' p b ≡ test''' p b
+twotests here (≤ₛ-hole .hole) = refl 
+twotests (there p) (≤ₛ-S b) = twotests p b
+
+--J (λ x y eq →  (x , {!!}) ≡ (y , {!!})) ([ₛ]-refl b p) {!!}
+
+
+twotests' :  ∀{s} → (p : Pos s) → (b : s ≤ₛ s) → test'' p b ≡ test''' p b
+twotests' p b = {!!}
+
+test : ∀{s} → (p : Pos s) → (b : s ≤ₛ s) → ( (λ p' → pos (addp2 p b refl p')) =<< conv (b [ₛ p ])  ) ≡ pos p 
+test p b = let
+     q = J (λ x y eq →  ( (λ p' → pos (addp2 p b (proj₂ y) p')) =<< conv (proj₁ y)) ≡ pos p) (sym (twotests p b))  {!!} 
+  in {!!}
+  
+cong' : {A B : Set}{x y : A} (P : A → B) → (x ≡ y) → P x ≡ P y
+cong' P eq = J (λ a b x → P a ≡ P b) eq refl 
+
+
+subst' : {A : Set}{x y : A} (P : A → Set) → (x ≡ y) → P x → P y
+subst' P eq p = J (λ a b x → P b) eq p
+
+toValPos-refl : ∀{s} → (p : Pos s) → (b : s ≤ₛ s) → toValPos p b ≡ pos p 
+toValPos-refl p b = let
+                coerce₁ = subst 
+            in {!!} 
+
+--here (≤ₛ-hole .hole) = refl
 --toValPos-refl (there p) (≤ₛ-S o) = cong (_=<<_ posThere) (toValPos-refl p o)
 
-toValPos-refl : ∀{s} → (p : Pos s) → (o : s ≤ₛ s) → toValPos p o ≡ pos p 
-toValPos-refl here (≤ₛ-hole .hole) = refl
-toValPos-refl (there p) (≤ₛ-S o) = cong (_=<<_ posThere) (toValPos-refl p o)
-
-toValPos-func : ∀{s s' s''} → (p : Pos s) → (o : s ≤ₛ s') → (o' : s' ≤ₛ s'') 
-          → (λ p' → toValPos p' o') =<< (toValPos p o) ≡ toValPos p (o' ≤ₛ-∘ o)
-toValPos-func here (≤ₛ-hole hole) (≤ₛ-hole s) = refl
-toValPos-func here (≤ₛ-hole Z) ≤ₛ-Z = refl
-toValPos-func here (≤ₛ-hole (S s)) (≤ₛ-S o') = 
-  cong S (trans (=<<-assoc posThere (λ p' → toValPos p' (≤ₛ-S o')) (conv s)) 
-         (trans (sym (=<<-assoc (λ p' → toValPos p' o') posThere (conv s))) 
-         (cong (_=<<_ posThere) (toValPos-func here (≤ₛ-hole s) o'))))
-toValPos-func (there p) (≤ₛ-S o) (≤ₛ-S o') = 
-  trans (=<<-assoc posThere (λ p' → toValPos p' (≤ₛ-S o')) (toValPos p o)) 
-  (trans (sym (=<<-assoc (λ p' → toValPos p' o') posThere (toValPos p o))) 
-  (cong (_=<<_ posThere) (toValPos-func p o o')))
+--toValPos-func : ∀{s s' s''} → (p : Pos s) → (o : s ≤ₛ s') → (o' : s' ≤ₛ s'') 
+--          → (λ p' → toValPos p' o') =<< (toValPos p o) ≡ toValPos p (o' ≤ₛ-∘ o)
+--toValPos-func here (≤ₛ-hole hole) (≤ₛ-hole s) = refl
+--toValPos-func here (≤ₛ-hole Z) ≤ₛ-Z = refl
+--toValPos-func here (≤ₛ-hole (S s)) (≤ₛ-S o') = 
+--  cong S (trans (=<<-assoc posThere (λ p' → toValPos p' (≤ₛ-S o')) (conv s)) 
+--         (trans (sym (=<<-assoc (λ p' → toValPos p' o') posThere (conv s))) 
+--         (cong (_=<<_ posThere) (toValPos-func here (≤ₛ-hole s) o'))))
+--toValPos-func (there p) (≤ₛ-S o) (≤ₛ-S o') = 
+--  trans (=<<-assoc posThere (λ p' → toValPos p' (≤ₛ-S o')) (toValPos p o)) 
+--  (trans (sym (=<<-assoc (λ p' → toValPos p' o') posThere (toValPos p o))) 
+--  (cong (_=<<_ posThere) (toValPos-func p o o')))
