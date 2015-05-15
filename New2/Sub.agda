@@ -289,14 +289,22 @@ test p b = let
 cong' : {A B : Set}{x y : A} (P : A → B) → (x ≡ y) → P x ≡ P y
 cong' P eq = J (λ a b x → P a ≡ P b) eq refl 
 
+eqlift : {A : Set} {a b : A} → (q : a ≡ b) → (a , refl {x = a}) ≡ (b , q)
+eqlift {A}{a}{b} q = J (λ a' b' x' → (a' , refl) ≡ (b' , x')) q refl -- (refl {x = (a , refl)})
 
 subst' : {A : Set}{x y : A} (P : A → Set) → (x ≡ y) → P x → P y
 subst' P eq p = J (λ a b x → P b) eq p
 
+substEq : {A : Set}{x y : A} (P : (a : A) → (x ≡ a) → Set) → (eq : x ≡ y) → P x refl → P y eq
+substEq P eq p = J (λ {(a , eqa) (b , eqb) x → P b eqb}) (eqlift eq) p
+
+J' : {A : Set}{a b : A}(C : (a : A) → (b : A) → (a ≡ b) → Set) → (o : a ≡ b) → C a a refl → C a b o
+J' {a = a}{b = b} C e c = substEq (λ b' eq → C a b' eq) e c
+
 toValPos-refl : ∀{s} → (p : Pos s) → (b : s ≤ₛ s) → toValPos p b ≡ pos p 
 toValPos-refl p b = let
                 coerce₁ = subst 
-            in {!!} 
+            in subst₂ {!!} {!!} {!!} {!!} 
 
 --here (≤ₛ-hole .hole) = refl
 --toValPos-refl (there p) (≤ₛ-S o) = cong (_=<<_ posThere) (toValPos-refl p o)
