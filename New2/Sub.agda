@@ -44,6 +44,9 @@ Inp hole = ⊥
 Inp Z = Unit
 Inp (S s) = Inp s
 
+Inps : ∀{m} → Subs m → Set
+Inps = VecI Inp
+
 --Bind : Sub → Set
 --Bind s = (p : Pos s) → Sub
 
@@ -400,31 +403,6 @@ diffs : ∀ {m}{σ σ' : Subs m} → σ ≤ σ' → ℕ
 diffs [] = 0
 diffs (x ∷ o) = diff x + diffs o
 
-
-splitₛ : ∀ s s' → s ≤ₛ s' → (s ≡ s') ⊎ (s <ₛ s')
-splitₛ s s' o = {!!}
---splitₛ .hole hole (≤ₛ-hole .hole) = inj₁ refl
---splitₛ .hole Z (≤ₛ-hole .Z) = inj₂ (λ ())
---splitₛ .hole (S s') (≤ₛ-hole .(S s')) = inj₂ (λ ())
---splitₛ .Z .Z ≤ₛ-Z = inj₁ refl
---splitₛ (S s) (S s') (≤ₛ-S o) with splitₛ s s' o
---splitₛ (S s) (S s') (≤ₛ-S o) | inj₁ x = inj₁ (cong S x)
---splitₛ (S s) (S s') (≤ₛ-S o) | inj₂ y = inj₂ (λ {(≤ₛ-S x) → y x})
---
---splitLE : ∀{m } → (σ σ' : Subs m) → σ ≤ σ' → (σ ≡ σ') ⊎ (σ < σ')
---splitLE .[] .[] [] = inj₁ refl
---splitLE (s ∷ σ) (s' ∷ σ') (x ∷ o) = {!!}
---
---
---<ₛ-to-≤ₛ : ∀{s s'} → s <ₛ s' → s ≤ₛ s'
---<ₛ-to-≤ₛ {hole}{s'} o = ≤ₛ-hole s' -- ⊥-elim (o {!!})
---<ₛ-to-≤ₛ {Z} {hole} o = ⊥-elim (o (≤ₛ-hole Z))
---<ₛ-to-≤ₛ {Z} {Z} o = ≤ₛ-Z
---<ₛ-to-≤ₛ {Z} {S s'} o = {!!}
---<ₛ-to-≤ₛ {S s} o = {!!}
---
---<-to-≤ : ∀{m}{σ σ' : Subs m} → σ < σ' → σ ≤ σ'
---<-to-≤ o = {!!}
 
 decSub : (s s' : Sub) → Dec (s ≡ s')
 decSub hole hole = yes refl
