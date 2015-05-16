@@ -3,20 +3,16 @@ module Sub where
 open import Data.Unit hiding (_≤_)
 open import Data.Empty
 open import Data.Product
-open import Data.Nat hiding (_≤_)
-open import Data.Fin hiding (_≤_) hiding (_<_)
+open import Data.Nat hiding (_≤_) hiding (_<_)
+open import Data.Fin hiding (_≤_) hiding (_<_) hiding (_+_)
 open import VecI
 open import Function
 open import Data.Vec
 open import Relation.Binary.PropositionalEquality
 open import Relation.Nullary
+open import Data.Sum
 
 postulate ext : ∀ {A B : Set} {f g : A → B} → ({x : A} → f x ≡ g x) → f ≡ g
-
-
-data Nat (A : Set) : Set where
-  Z : Nat A
-  S : A → Nat A
  
 data Sub : Set where
   hole : Sub
@@ -25,6 +21,9 @@ data Sub : Set where
  
 Subs : ℕ → Set
 Subs = Vec Sub
+
+downS : {s s' : Sub} → S s ≡ S s'  → s ≡ s'
+downS refl = refl
   
 data Pos : Sub → Set where
   here : Pos hole
@@ -331,10 +330,11 @@ toValPos-func (there p) (≤ₛ-S o) (≤ₛ-S o') =
   (trans (sym (=<<-assoc (λ p' → toValPos p' o') posThere (toValPos p o))) 
   (cong (_=<<_ posThere) (toValPos-func p o o')))
 
-  
+_≠_ : {A : Set} → A → A → Set  
+a ≠ b = ¬ (a ≡ b)
   
 _<ₛ_ : Sub → Sub → Set
-s <ₛ s' = ¬ (s' ≤ₛ s)
+s <ₛ s' = (s ≤ₛ s') × (s ≠ s')
 
 _≤ₜ_ : ℕ → ℕ → Set
 _≤ₜ_ = Data.Nat._≤_
@@ -357,35 +357,9 @@ mkWF n = acc (go n)
     go (suc n) zero lt = acc (λ m ())
     go (suc n) (suc m) (s≤s m<n) = acc (λ o o<sm → go n o (transN o<sm m<n))
   
-data ⟨_-_⟩=_ : Sub → Sub → ℕ → Set where
-  ZZ : ⟨ Z - Z ⟩= 0
-  SS : ∀{n s s'} → ⟨ s - s' ⟩= n → ⟨ S s - S s' ⟩= n
-  hh : ⟨ hole - hole ⟩= 0
-  Zh : ⟨ Z - hole ⟩= 1
-  Sh : ∀{n s} → ⟨ s - hole ⟩= n → ⟨ S s - hole ⟩= suc n
-  
 ≤ₜ-step : ∀{m n} → m ≤ₜ n → m ≤ₜ suc n
 ≤ₜ-step z≤n = z≤n
 ≤ₜ-step (s≤s o) = s≤s (≤ₜ-step o)
-
-  
-holeMax : ∀ {m s n n'} → ⟨ m - s ⟩= n → ⟨ m - hole ⟩= n' → n ≤ₜ n'
-holeMax hh hh = z≤n
-holeMax ZZ Zh = z≤n
-holeMax Zh Zh = s≤s z≤n -- s≤s (s≤s z≤n)
-holeMax (SS n) (Sh n') = ≤ₜ-step (holeMax n n')
-holeMax (Sh n) (Sh n') = s≤s (holeMax n n')
-
-ltthing : ∀ {m s s' n n'} → ⟨ m - s ⟩= n → ⟨ m - s' ⟩= n' → s' <ₛ s → n <ₜ n'
-ltthing ZZ ZZ so = ⊥-elim (so ≤ₛ-Z)
-ltthing ZZ Zh le = s≤s z≤n
-ltthing (SS n) (SS n') so = ltthing n n' (λ x → so (≤ₛ-S x))
-ltthing (SS n) (Sh n') so = s≤s (holeMax n n') 
-ltthing hh hh so = ⊥-elim (so (≤ₛ-hole hole))
-ltthing Zh ZZ so = ⊥-elim (so (≤ₛ-hole Z))
-ltthing Zh Zh so = ⊥-elim (so (≤ₛ-hole hole))
-ltthing {s' = S s'} (Sh n₁) (SS n'') so = ⊥-elim (so (≤ₛ-hole (S s')))
-ltthing (Sh n) (Sh n') so = s≤s (ltthing n n' so)
 
 diff : ∀{s s'} → s ≤ₛ s' → ℕ
 diff (≤ₛ-hole hole) = 0
@@ -404,23 +378,13 @@ diffmax (≤ₛ-hole .Z) ≤ₛ-Z = z≤n
 diffmax (≤ₛ-hole (S s)) (≤ₛ-S o') = ≤ₜ-step (diffmax (≤ₛ-hole s) o') -- diffmax {!!} o'
 
 mono-diff : ∀ {m s s'} → (o : s ≤ₛ m) → (o' : s' ≤ₛ m) → s <ₛ s' → diff o' <ₜ diff o
-mono-diff (≤ₛ-hole s) (≤ₛ-hole .s) so = ⊥-elim (so (≤ₛ-hole hole))
+mono-diff (≤ₛ-hole s) (≤ₛ-hole .s) (proj₁ , ¬p) = ⊥-elim (¬p refl) -- ⊥-elim (so (≤ₛ-hole hole))
 mono-diff (≤ₛ-hole .Z) ≤ₛ-Z so = s≤s z≤n
 mono-diff (≤ₛ-hole (S s)) (≤ₛ-S o') so = s≤s (diffmax (≤ₛ-hole s) o')
-mono-diff ≤ₛ-Z (≤ₛ-hole .Z) so = ⊥-elim (so (≤ₛ-hole Z))
-mono-diff ≤ₛ-Z ≤ₛ-Z so = ⊥-elim (so ≤ₛ-Z)
-mono-diff {S m}{S s} (≤ₛ-S o) (≤ₛ-hole ._) so = ⊥-elim (so (≤ₛ-hole (S s)))
-mono-diff (≤ₛ-S o) (≤ₛ-S o') so = mono-diff o o' (λ z → so (≤ₛ-S z))
-
-  
-toDiff : ∀{s s'} → s ≤ₛ s' → Σ ℕ (λ n → ⟨ s' - s ⟩= n)
-toDiff (≤ₛ-hole hole) = zero , hh
-toDiff (≤ₛ-hole Z) = suc zero , Zh
-toDiff (≤ₛ-hole (S s)) with toDiff (≤ₛ-hole s) 
-toDiff (≤ₛ-hole (S s)) | n , diff = (suc n) , (Sh diff)
-toDiff ≤ₛ-Z = 0 , ZZ
-toDiff (≤ₛ-S o) with toDiff o
-toDiff (≤ₛ-S o) | n , diff = n , (SS diff) 
+mono-diff ≤ₛ-Z (≤ₛ-hole .Z) (() , ¬p) --  ⊥-elim (so (≤ₛ-hole Z))
+mono-diff ≤ₛ-Z ≤ₛ-Z (o , ¬p) = ⊥-elim (¬p refl) -- ⊥-elim (so ≤ₛ-Z)
+mono-diff {S m} {S s} (≤ₛ-S o) (≤ₛ-hole .(S m)) (() , ¬p) -- ⊥-elim (so (≤ₛ-hole (S s)))
+mono-diff (≤ₛ-S o) (≤ₛ-S o') (≤ₛ-S so , ¬p) = mono-diff o o' (so , (λ x → ¬p (cong S x))) 
 
 data Acc (m : Sub) (s : Sub) : Set where
   acc : (∀ s' → s' ≤ₛ m → s <ₛ s' → Acc m s') → Acc m s
@@ -428,3 +392,105 @@ data Acc (m : Sub) (s : Sub) : Set where
 acc' : ∀{m} → (s : Sub) → (o : s ≤ₛ m) → WF (diff o) → (s' : Sub) → s'  ≤ₛ m → s <ₛ s' →  Acc m s'
 acc' s o (acc f) s' o' so = acc (acc' s' o' (f (diff o') (mono-diff o o' so)))
   
+
+_<_ : ∀{m} → Subs m → Subs m → Set
+σ < σ' = σ ≤ σ' × σ ≠ σ'
+
+diffs : ∀ {m}{σ σ' : Subs m} → σ ≤ σ' → ℕ 
+diffs [] = 0
+diffs (x ∷ o) = diff x + diffs o
+
+
+splitₛ : ∀ s s' → s ≤ₛ s' → (s ≡ s') ⊎ (s <ₛ s')
+splitₛ s s' o = {!!}
+--splitₛ .hole hole (≤ₛ-hole .hole) = inj₁ refl
+--splitₛ .hole Z (≤ₛ-hole .Z) = inj₂ (λ ())
+--splitₛ .hole (S s') (≤ₛ-hole .(S s')) = inj₂ (λ ())
+--splitₛ .Z .Z ≤ₛ-Z = inj₁ refl
+--splitₛ (S s) (S s') (≤ₛ-S o) with splitₛ s s' o
+--splitₛ (S s) (S s') (≤ₛ-S o) | inj₁ x = inj₁ (cong S x)
+--splitₛ (S s) (S s') (≤ₛ-S o) | inj₂ y = inj₂ (λ {(≤ₛ-S x) → y x})
+--
+--splitLE : ∀{m } → (σ σ' : Subs m) → σ ≤ σ' → (σ ≡ σ') ⊎ (σ < σ')
+--splitLE .[] .[] [] = inj₁ refl
+--splitLE (s ∷ σ) (s' ∷ σ') (x ∷ o) = {!!}
+--
+--
+--<ₛ-to-≤ₛ : ∀{s s'} → s <ₛ s' → s ≤ₛ s'
+--<ₛ-to-≤ₛ {hole}{s'} o = ≤ₛ-hole s' -- ⊥-elim (o {!!})
+--<ₛ-to-≤ₛ {Z} {hole} o = ⊥-elim (o (≤ₛ-hole Z))
+--<ₛ-to-≤ₛ {Z} {Z} o = ≤ₛ-Z
+--<ₛ-to-≤ₛ {Z} {S s'} o = {!!}
+--<ₛ-to-≤ₛ {S s} o = {!!}
+--
+--<-to-≤ : ∀{m}{σ σ' : Subs m} → σ < σ' → σ ≤ σ'
+--<-to-≤ o = {!!}
+
+decSub : (s s' : Sub) → Dec (s ≡ s')
+decSub hole hole = yes refl
+decSub hole Z = no (λ ())
+decSub hole (S s') = no (λ ())
+decSub Z hole = no (λ ())
+decSub Z Z = yes refl
+decSub Z (S s') = no (λ ())
+decSub (S s) hole = no (λ ())
+decSub (S s) Z = no (λ ())
+decSub (S s) (S s') with decSub s s'
+decSub (S s) (S s') | yes p = yes (cong S p)
+decSub (S s) (S s') | no ¬p = no (λ x → ¬p (downS x))
+
+--
+splitOrd : ∀{m } (s s' : Sub) → (σ σ' : Subs m) → (s ∷ σ) < (s' ∷ σ') → (s <ₛ s') ⊎ (σ < σ')
+splitOrd s s' [] [] (x ∷ [] , ¬p) = inj₁ (x , (λ p → ¬p (cong (λ z → z ∷ []) p))) -- inj₁ (λ x → o (x ∷ []))
+splitOrd s s' (x ∷ σ) (x₁ ∷ σ') (o ∷ os , ¬p) with decSub s s' 
+splitOrd s .s (x ∷ σ) (x₁ ∷ σ') (o ∷ os , ¬p) | yes refl = inj₂ (os , (λ x₂ → ¬p (cong (_∷_ s) x₂)))
+splitOrd s s' (x ∷ σ) (x₁ ∷ σ') (o ∷ os , ¬p₁) | no ¬p = inj₁ (o , ¬p)
+--
+--ith splitₛ x x₁ σ σ' {!!} 
+--...| c  = {!!}
+--
++-suc : ∀{b n} → (b + suc n) ≡ suc (b + n)
++-suc {zero} = λ {n} → refl
++-suc {suc b} {n} = cong suc (+-suc {b} {n})
+
+le-add' : ∀{a b c d} → a ≤ₜ b → c ≤ₜ d → (a + c) ≤ₜ (b + d)
+le-add' z≤n z≤n = z≤n
+le-add' {.zero}{b}{suc c}{suc d} z≤n (s≤s o') = subst (λ x → suc c ≤ₜ x) (sym (+-suc {b}{d})) (s≤s (le-add' (z≤n {b}) o'))
+le-add' (s≤s o) z≤n = s≤s (le-add' o z≤n)
+le-add' (s≤s o) (s≤s o') = s≤s (le-add' o (s≤s o'))
+--
+le-add : ∀{a b c d} → a <ₜ b → c ≤ₜ d → (a + c) <ₜ (b + d)
+le-add o o' = le-add' o o' 
+
+
+le-add2 : ∀{a b c d} → a ≤ₜ b → c <ₜ d → (a + c) <ₜ (b + d)
+le-add2 {a}{b}{c}{suc d} z (s≤s o) = subst (λ x → suc (a + c) ≤ₜ x) (sym (+-suc {b}{d})) (s≤s (le-add' z o))
+--le-add2 z≤n (s≤s o') = {!!}
+--le-add2 (s≤s o) (s≤s o') = s≤s {!subst (λ x → ?) ? (le-add' s≤s!}
+--
+--
+mono-diff' : ∀ {m s s'} → (o : s ≤ₛ m) → (o' : s' ≤ₛ m) → s ≤ₛ s' → diff o' ≤ₜ diff o
+mono-diff' (≤ₛ-hole s) (≤ₛ-hole .s) so = ≤ₜ-refl
+mono-diff' (≤ₛ-hole .Z) ≤ₛ-Z so = z≤n
+mono-diff' {S m}{.hole}{S s'} (≤ₛ-hole (._)) (≤ₛ-S o') (≤ₛ-hole ._) = ≤ₜ-step (mono-diff' (≤ₛ-hole m) o' (≤ₛ-hole s'))
+mono-diff' ≤ₛ-Z (≤ₛ-hole .Z) ()
+mono-diff' ≤ₛ-Z ≤ₛ-Z ≤ₛ-Z = z≤n
+mono-diff' (≤ₛ-S o) (≤ₛ-hole ._) ()
+mono-diff' (≤ₛ-S o) (≤ₛ-S o') (≤ₛ-S so) = mono-diff' o o' so
+
+mono-diffs' : ∀ {m}{τ σ σ' : Subs m} → (o : σ ≤ τ) → (o' : σ' ≤ τ) → σ ≤ σ' → diffs o' ≤ₜ diffs o 
+mono-diffs' [] [] so = z≤n
+mono-diffs' (x ∷ o) (x₁ ∷ o') (x₂ ∷ so) = le-add' (mono-diff' x x₁ x₂) (mono-diffs' o o' so)
+
+mono-diffs : ∀ {m}{τ σ σ' : Subs m} → (o : σ ≤ τ) → (o' : σ' ≤ τ) → σ < σ' → diffs o' <ₜ diffs o 
+mono-diffs [] [] ([] , ¬p) = ⊥-elim (¬p refl) 
+mono-diffs {σ = s ∷ σ}{σ' = s' ∷ σ'} (o ∷ os) (o' ∷ os') so with splitOrd s s' σ σ' so 
+mono-diffs {._} {._} {s ∷ σ} {s' ∷ σ'} (o ∷ os) (o' ∷ os') (so ∷ so' , ¬ps) | inj₁ (_ , ¬p) =  le-add (mono-diff o o' (so , ¬p)) (mono-diffs' os os' so')
+mono-diffs {._} {._} {s ∷ σ} {s' ∷ σ'} (o ∷ os) (o' ∷ os') (so ∷ so' , _) | inj₂ sos = le-add2 (mono-diff' o o' so) (mono-diffs os os' sos)
+
+data Accs {m : ℕ} (τ : Subs m) (σ : Subs m) : Set where
+  accs : (∀ σ' → σ' ≤ τ → σ < σ' → Accs τ σ') → Accs τ σ 
+ 
+accs' : ∀{m}{τ : Subs m} → (σ : Subs m) → (o : σ ≤ τ) → WF (diffs o) → (σ' : Subs m) → σ' ≤ τ → σ < σ' →  Accs τ σ'
+accs' s o (acc f) s' o' so = accs (accs' s' o' (f (diffs o') (mono-diffs o o' so)))
+ 
