@@ -2,8 +2,8 @@ module Exp where
 
 open import Data.Product hiding (zip)
 open import Data.Vec as V hiding (_∈_)
-open import Data.Fin hiding (_+_ ) hiding (lift) hiding (_≤_)
-open import Data.Nat hiding (_≤_)
+open import Data.Fin hiding (_+_ ) hiding (lift) hiding (_≤_) hiding (_<_)
+open import Data.Nat hiding (_≤_) hiding (_<_)
 open import Function
 open import Data.Unit hiding (_≤_)
 open import Relation.Binary.PropositionalEquality
@@ -161,6 +161,10 @@ _/_ {σ = s ∷ σ} (suc x , p) s' = ≤ₛ-refl ∷ (x , p) / s'
 data MinB {m : ℕ}{σ : Subs m} (x : MVar σ) : {σ' : Subs m}  → σ ≤ σ' → Set where
   bindZ :  MinB x (x / Z)
   bindS :  MinB x (x / S hole)
+  
+sucMinB : ∀{m s}{σ σ' : Subs m} → (x : Fin m) → (p : Pos (lookup x σ)) → (b : σ ≤ σ') → MinB (x , p) b → MinB (suc x , p) (≤ₛ-refl {s} ∷ b)
+sucMinB x p .((x , p) / Z) bindZ = bindZ
+sucMinB x p .((x , p) / S hole) bindS = bindS
 
 --data _➣_ {m V : ℕ}{σ σ' : Subs m} : Exp V σ → (σ ≤ σ') → Set where 
 --  narr : ∀{e b} → (x : MVar σ) → (s : e ⇥ x) → (MinB x b) → e ➣ b
@@ -213,71 +217,117 @@ _⇝!_ : {m V : ℕ}{σ σ' : Subs m} → Exp V σ → Exp V σ' → Set
 _⇝!_ = NRed! Susp MinBs
   
 
-⇝!-mono : ∀{V m}{σ σ' : Subs m}{e : Exp V σ}{e' : Exp V σ'} → e ⇝! e' → σ ≤ σ'
+⇝!-mono : ∀{V m}{P : ExpP}{Q : NarrS P}{σ σ' : Subs m}{e : Exp V σ}{e' : Exp V σ'} → NRed! P Q e e' → σ ≤ σ'
 ⇝!-mono ([] o) = o 
 ⇝!-mono (x ∷ r) = ⇝!-mono r ≤-∘ ⇝-mono x
 
---
---sucExp-fromVP : {V' m : ℕ}{σ : Subs m}(V : ℕ) → (x : Fin m) →  (vp : ValPos (lookup x σ))    →  sucExp {V'} V (fromValPos x vp) ≡ fromValPos x vp
---sucExp-fromVP V x (pos p) = refl
---sucExp-fromVP V x Z = refl
---sucExp-fromVP V x (S vp) = cong S (sucExp-fromVP V x vp)
---
---sucExp-func : ∀{V' m}{σ σ' : Subs m}(V : ℕ) → (e : Exp (V + V') σ) → (o : σ ≤ σ') → sucExp V (e ⟦ o ⟧) ≡ sucExp V e ⟦ o ⟧
---sucExp-func V Z o = refl
---sucExp-func V (S e) o = cong S (sucExp-func V e o)
---sucExp-func V (var x) o = refl
---sucExp-func V (mvar (x , p)) o = sucExp-fromVP V x (toValPos p (lookupI₂ x o))
---sucExp-func V (case e alt₀ e₁ altₛ e₂) o = cong₃ case_alt₀_altₛ_ (sucExp-func V e o) (sucExp-func V e₁ o) (sucExp-func (suc V) e₂ o) 
---
---rep-fromVP : {V' m : ℕ}{σ : Subs m}(V : ℕ) → (e' : Exp V' σ) → (x : Fin m) →  (vp : ValPos (lookup x σ))    →  rep V (fromValPos x vp) e' ≡ fromValPos x vp
---rep-fromVP V e' x (pos p) = refl
---rep-fromVP V e' x Z = refl
---rep-fromVP V e' x (S vp) = cong S (rep-fromVP V e' x vp)
---
---rep-func : {V' m : ℕ}{σ σ' : Subs m}(V : ℕ) → (e : Exp (V + suc V') σ) → (e' : Exp V' σ) → (o : σ ≤ σ') →  rep V (e ⟦ o ⟧) (e' ⟦ o ⟧) ≡ (rep V e e') ⟦ o ⟧
---rep-func V Z e' o = refl
---rep-func V (S e) e' o = cong S (rep-func V e e' o)
---rep-func zero (var zero) e' o = refl
---rep-func zero (var (suc x)) e' o = refl
---rep-func (suc V) (var zero) e' o = refl
---rep-func (suc V) (var (suc x)) e' o with rep-func V (var x) e' o
---...| p = trans (cong (sucExp 0) p) (sucExp-func zero (rep V (var x) e') o)
---rep-func V (mvar (x , p)) e' o = rep-fromVP V (e' ⟦ o ⟧) x (toValPos p (lookupI₂ x o))
---rep-func V (case e alt₀ e₁ altₛ e₂) e' o = cong₃ case_alt₀_altₛ_ (rep-func V e e' o) (rep-func V e₁ e' o) (rep-func (suc V) e₂ e' o)
---
---↦-lift : ∀{m V}{σ σ' : Subs m}{e e' : Exp V σ} → e ↦ e' → (o : σ ≤ σ') → e ⟦ o ⟧ ↦ e' ⟦ o ⟧
---↦-lift (caseZ e₀ eₛ) o = caseZ (e₀ ⟦ o ⟧) (eₛ ⟦ o ⟧)
---↦-lift (caseS e e₀ eₛ) o = subst 
---       (λ e' → ((case (S e) alt₀ e₀ altₛ eₛ) ⟦ o ⟧) ↦ e') 
---       (rep-func zero eₛ e o) 
---       (caseS (e ⟦ o ⟧) (e₀ ⟦ o ⟧) (eₛ ⟦ o ⟧))
---↦-lift (prom r) o = prom (↦-lift r o)
---
---↦*-lift : ∀{m V}{σ σ' : Subs m}{e e' : Exp V σ} → e ↦* e' → (o : σ ≤ σ') → e ⟦ o ⟧ ↦* e' ⟦ o ⟧
---↦*-lift [] o = []
---↦*-lift (x ∷ r) o = ↦-lift x o ∷ ↦*-lift r o
---
---
---⇝-sound : ∀{m V}{σ σ' : Subs m}{e : Exp V σ}{e' : Exp V σ'} → (r : e ⇝ e') → e ⟦ ⇝-mono r ⟧ ↦ e'
+
+sucExp-fromVP : {V' m : ℕ}{σ : Subs m}(V : ℕ) → (x : Fin m) →  (vp : ValPos (lookup x σ))    →  sucExp {V'} V (fromValPos x vp) ≡ fromValPos x vp
+sucExp-fromVP V x (pos p) = refl
+sucExp-fromVP V x Z = refl
+sucExp-fromVP V x (S vp) = cong S (sucExp-fromVP V x vp)
+
+sucExp-func : ∀{V' m}{σ σ' : Subs m}(V : ℕ) → (e : Exp (V + V') σ) → (o : σ ≤ σ') → sucExp V (e ⟦ o ⟧) ≡ sucExp V e ⟦ o ⟧
+sucExp-func V Z o = refl
+sucExp-func V (S e) o = cong S (sucExp-func V e o)
+sucExp-func V (var x) o = refl
+sucExp-func V (mvar (x , p)) o = sucExp-fromVP V x (toValPos p (lookupI₂ x o))
+sucExp-func V (case e alt₀ e₁ altₛ e₂) o = cong₃ case_alt₀_altₛ_ (sucExp-func V e o) (sucExp-func V e₁ o) (sucExp-func (suc V) e₂ o) 
+
+rep-fromVP : {V' m : ℕ}{σ : Subs m}(V : ℕ) → (e' : Exp V' σ) → (x : Fin m) →  (vp : ValPos (lookup x σ))    →  rep V (fromValPos x vp) e' ≡ fromValPos x vp
+rep-fromVP V e' x (pos p) = refl
+rep-fromVP V e' x Z = refl
+rep-fromVP V e' x (S vp) = cong S (rep-fromVP V e' x vp)
+
+rep-func : {V' m : ℕ}{σ σ' : Subs m}(V : ℕ) → (e : Exp (V + suc V') σ) → (e' : Exp V' σ) → (o : σ ≤ σ') →  rep V (e ⟦ o ⟧) (e' ⟦ o ⟧) ≡ (rep V e e') ⟦ o ⟧
+rep-func V Z e' o = refl
+rep-func V (S e) e' o = cong S (rep-func V e e' o)
+rep-func zero (var zero) e' o = refl
+rep-func zero (var (suc x)) e' o = refl
+rep-func (suc V) (var zero) e' o = refl
+rep-func (suc V) (var (suc x)) e' o with rep-func V (var x) e' o
+...| p = trans (cong (sucExp 0) p) (sucExp-func zero (rep V (var x) e') o)
+rep-func V (mvar (x , p)) e' o = rep-fromVP V (e' ⟦ o ⟧) x (toValPos p (lookupI₂ x o))
+rep-func V (case e alt₀ e₁ altₛ e₂) e' o = cong₃ case_alt₀_altₛ_ (rep-func V e e' o) (rep-func V e₁ e' o) (rep-func (suc V) e₂ e' o)
+
+↦-lift : ∀{m V}{σ σ' : Subs m}{e e' : Exp V σ} → e ↦ e' → (o : σ ≤ σ') → e ⟦ o ⟧ ↦ e' ⟦ o ⟧
+↦-lift (caseZ e₀ eₛ) o = caseZ (e₀ ⟦ o ⟧) (eₛ ⟦ o ⟧)
+↦-lift (caseS e e₀ eₛ) o = subst 
+       (λ e' → ((case (S e) alt₀ e₀ altₛ eₛ) ⟦ o ⟧) ↦ e') 
+       (rep-func zero eₛ e o) 
+       (caseS (e ⟦ o ⟧) (e₀ ⟦ o ⟧) (eₛ ⟦ o ⟧))
+↦-lift (prom r) o = prom (↦-lift r o)
+
+↦*-lift : ∀{m V}{σ σ' : Subs m}{e e' : Exp V σ} → e ↦* e' → (o : σ ≤ σ') → e ⟦ o ⟧ ↦* e' ⟦ o ⟧
+↦*-lift [] o = []
+↦*-lift (x ∷ r) o = ↦-lift x o ∷ ↦*-lift r o
+
+
+--⇝-sound : ∀{m V}{σ σ' : Subs m}{e : Exp V σ}{e' : Exp V σ'} → (r : e e') → e ⟦ ⇝-mono r ⟧ ↦ e'
 --⇝-sound (narr x o b r) = r
 --⇝-sound {e' = e'} (red r) = subst (λ x → x ↦ e') (sym (⟦⟧-refl ≤-refl)) r
---
---⇝!-sound : ∀{m V}{σ σ' : Subs m}{e : Exp V σ}{e' : Exp V σ'} → (r : e ⇝! e') → e ⟦ ⇝!-mono r ⟧ ↦* e'
---⇝!-sound ([] o) = [] 
---⇝!-sound {e = e}{e'} (r ∷ r!) = coerce₁ (r' ∷ r*)
---         where
---           r' = ↦-lift (⇝-sound r) (⇝!-mono r!)
---           r* = ⇝!-sound r!
---           coerce₁ = subst (λ x → x ↦* e') (⟦⟧-func e (⇝-mono r) (⇝!-mono r!))
---     
+
+NRed!-sound : ∀{m V}{P : ExpP}{Q : NarrS P}{σ σ' : Subs m}{e : Exp V σ}{e' : Exp V σ'} → (r : NRed! P Q e e') → e ⟦ ⇝!-mono r ⟧ ↦* e'
+NRed!-sound ([] o) = []
+NRed!-sound {e = e}{e'} (narr p b x ∷ r!) = coerce₁ (NRed!-sound r!) 
+  where coerce₁ = subst (λ a → a ↦* e') (⟦⟧-func e b (⇝!-mono r!))
+NRed!-sound {e = e}{e'} (red r ∷ r!) = coerce₁ (↦-lift r (⇝!-mono r!) ∷ NRed!-sound r!)
+  where coerce₁ = subst (λ x → e ⟦ x ⟧ ↦* e') (≤-uniq (⇝!-mono r!) (⇝!-mono r! ≤-∘ ≤-refl)) 
+
+completeNotSusp : ∀{m V}{σ σ' : Subs m}{e : Exp V σ}{e' : Exp V σ'} → (b : σ ≤ σ') → e ⟦ b ⟧ ↦ e' → ¬ (Susp e) →  Σ (Exp V σ) (λ e'' → e ↦ e'' × e'' ⟦ b ⟧ ≡ e')
+completeNotSusp {e = Z} b () ¬s
+completeNotSusp {e = S e} b () ¬s
+completeNotSusp {e = var x} b () ¬s
+completeNotSusp {e = mvar x} b r ¬s = ⊥-elim (¬s (x , susp x))
+completeNotSusp {e = case Z alt₀ e₁ altₛ e₂} b (caseZ ._ ._) ¬s = e₁ , caseZ e₁ e₂ , refl
+completeNotSusp {e = case Z alt₀ e₁ altₛ e₂} b (prom ()) ¬s
+completeNotSusp {m}{V} {e = case S e alt₀ e₁ altₛ e₂} b (caseS ._ ._ ._) ¬s = 
+  e₂ ⟪ e ⟫ , caseS e e₁ e₂ , sym (rep-func zero e₂ e b)
+completeNotSusp {e = case S e alt₀ e₁ altₛ e₂} b (prom ()) ¬s
+completeNotSusp {e = case var x alt₀ e₁ altₛ e₂} b (prom ()) ¬s
+completeNotSusp {e = case mvar x alt₀ e₁ altₛ e₂} b r ¬s = ⊥-elim (¬s (x , subj-susp (susp x)))
+completeNotSusp {e = case case e alt₀ e₁ altₛ e₂ alt₀ e₃ altₛ e₄} b (prom r) ¬s 
+  with completeNotSusp {e = case e alt₀ e₁ altₛ e₂} b r (λ {(x , sus) → ¬s (x , (subj-susp sus))})
+completeNotSusp {m} {V} {σ} {σ'} {case case e alt₀ e₁ altₛ e₂ alt₀ e₃ altₛ e₄} b (prom r) ¬s 
+  | e'' , r' , eq = case e'' alt₀ e₃ altₛ e₄  , prom r' , cong₃ case_alt₀_altₛ_ eq refl refl
+  
+decSusp : ∀{V m}{σ : Subs m} → (e : Exp V σ) → Dec (Susp e)
+decSusp Z = no (λ {( x , () )} )
+decSusp (S e) = no (λ {( x , () )} )
+decSusp (var x) = no (λ {( x , () )} )
+decSusp (mvar x) = yes (x , susp x)
+decSusp (case e alt₀ e₁ altₛ e₂) with decSusp e
+decSusp (case e alt₀ e₁ altₛ e₂) | yes (x , s) = yes (x , subj-susp s)
+decSusp (case e alt₀ e₁ altₛ e₂) | no ¬p = no (λ {(x , subj-susp s) → ¬p (x , s)})
+  
+
 --↦-NotFromVal : ∀{m V}{σ : Subs m}{e' : Exp V σ} → (x : Fin m) → (vp : ValPos (lookup x σ)) →  ¬ (fromValPos x vp ↦ e')
 --↦-NotFromVal x (pos p) ()
 --↦-NotFromVal x Z ()
 --↦-NotFromVal x (S vp) ()
 --
---
---⇝F-complete : ∀{m V}{σ σ' : Subs m}{e' : Exp V σ'}{e : Exp V σ} → (o : σ ≤ σ') → e ⟦ o ⟧ ↦ e' → e ⇝F e' 
+
+
+NSet-complete : ∀{m} → (σ : Subs m) → (B : {σ' : Subs m} → σ ≤ σ' → Set) → Set
+NSet-complete {m} σ B = {τ : Subs m} → σ ≤ τ → Inps τ → ∃₂ (λ σ' b → B {σ'} b × σ' ≤ τ )
+
+NSet-strict : ∀{m} → (σ : Subs m) → (B : {σ' : Subs m} → σ ≤ σ' → Set) → Set
+NSet-strict {m} σ B = ∀ {σ'} → (b : σ ≤ σ') → B b → σ < σ'
+
+MinB-complete : ∀{m} {σ : Subs m} → (x : MVar σ) → NSet-complete σ (MinB x) 
+MinB-complete {σ = (s ∷ σ)} (zero , p) (o ∷ os) (inp ∷ inps) with o [ₛ p ]
+MinB-complete {σ = (s ∷ σ)} (zero , p) (o ∷ os) (inp ∷ inps) | hole = {!!}
+MinB-complete {σ = (s ∷ σ)} (zero , p) (o ∷ os) (inp ∷ inps) | Z =  s [ p //ₛ Z ] ∷ σ , (p /ₛ Z) ∷ ≤-refl , bindZ , {!!} ∷ os
+MinB-complete {σ = (s ∷ σ)} (zero , p) (o ∷ os) (inp ∷ inps) | S c = s [ p //ₛ S hole ] ∷ σ , (p /ₛ S hole) ∷ ≤-refl , bindS , {!!} ∷ os
+MinB-complete {σ = (s ∷ σ)} (suc x , p) (o ∷ os) (inp ∷ inps) with MinB-complete (x , p) os inps
+MinB-complete {σ = (s ∷ σ)} (suc x , p) (o ∷ os) (inp ∷ inps) | σ' , os' , bs , lt = s ∷ σ' , ≤ₛ-refl ∷ os' , sucMinB x p os' bs , o ∷ lt
+
+⇝!-complete : ∀{m V}{σ τ : Subs m}{e' : Exp V τ}(e : Exp V σ) → (o : σ ≤ τ) → Inps τ → e ⟦ o ⟧ ↦* e' → e ⇝! e' 
+⇝!-complete e b inp [] = [] b 
+⇝!-complete e b inp (r ∷ r*) with decSusp e
+⇝!-complete e b inp (r ∷ r*) | yes (x , s) = {!!}
+⇝!-complete e b inp (r ∷ r*) | no ¬p with completeNotSusp b r ¬p
+⇝!-complete e b inp (r ∷ r*) | no ¬p | e'' , r' , refl = red r' ∷ ⇝!-complete e'' b inp r*
 --⇝F-complete {e = Z} o ()
 --⇝F-complete {e = S e} o ()
 --⇝F-complete {e = var x} o ()

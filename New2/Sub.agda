@@ -7,6 +7,7 @@ open import Data.Nat hiding (_≤_) hiding (_<_)
 open import Data.Fin hiding (_≤_) hiding (_<_) hiding (_+_)
 open import VecI
 open import Function
+open import Helpful
 open import Data.Vec
 open import Relation.Binary.PropositionalEquality
 open import Relation.Nullary
@@ -39,10 +40,9 @@ data Pos : Sub → Set where
 
 
 
-Inp : Sub → Set
-Inp hole = ⊥
-Inp Z = Unit
-Inp (S s) = Inp s
+data Inp : Sub → Set where
+  Z : Inp Z 
+  S : ∀{s} → Inp s → Inp (S s)
 
 Inps : ∀{m} → Subs m → Set
 Inps = VecI Inp
@@ -131,6 +131,12 @@ _[ₛ_] : {s s' : Sub} → (b : s ≤ₛ s') → Pos s → Sub
 ≤ₛ-hole s [ₛ here ] = s
 ≤ₛ-S b [ₛ there p ] = b [ₛ p ]
 
+[ₛ]-inp : ∀{s s'} → Inp s' → (b : s ≤ₛ s') → (p : Pos s) →  b [ₛ p ] ≠ hole
+[ₛ]-inp Z (≤ₛ-hole .Z) here ()
+[ₛ]-inp Z ≤ₛ-Z () x
+[ₛ]-inp (S inp) (≤ₛ-hole ._) here ()
+[ₛ]-inp (S inp) (≤ₛ-S b) (there p) x = [ₛ]-inp inp b p x 
+
 [ₛ]-refl : ∀{s} → (b : s ≤ₛ s) → (p : Pos s) →  b [ₛ p ] ≡ hole
 [ₛ]-refl (≤ₛ-hole .hole) here = refl
 [ₛ]-refl (≤ₛ-S b) (there p) = [ₛ]-refl b p
@@ -138,6 +144,10 @@ _[ₛ_] : {s s' : Sub} → (b : s ≤ₛ s') → Pos s → Sub
 _[_//ₛ_] : (s : Sub) →  (Pos s) → Sub → Sub
 _[_//ₛ_] hole here s' = s'
 _[_//ₛ_] (S s) (there p) s' = S  (s [ p //ₛ s' ])
+
+look-sub :  ∀{s s' s''} → (b : s ≤ₛ s') → (p : Pos s) → s'' ≤ₛ b [ₛ p ] → s [ p //ₛ s'' ] ≤ₛ s'
+look-sub (≤ₛ-hole s) here o = o
+look-sub (≤ₛ-S b) (there p) o = ≤ₛ-S (look-sub b p o)
 
 _+⟨_,_⟩_ : ∀{s s' s''} → (p : Pos s) → (b : s ≤ₛ s') → (b [ₛ p ] ≡ s'') → (p' : Pos s'') → Pos s'
 here +⟨ ≤ₛ-hole s , refl ⟩ p' = p' -- p'
@@ -333,9 +343,7 @@ toValPos-func (there p) (≤ₛ-S o) (≤ₛ-S o') =
   (trans (sym (=<<-assoc (λ p' → toValPos p' o') posThere (toValPos p o))) 
   (cong (_=<<_ posThere) (toValPos-func p o o')))
 
-_≠_ : {A : Set} → A → A → Set  
-a ≠ b = ¬ (a ≡ b)
-  
+ 
 _<ₛ_ : Sub → Sub → Set
 s <ₛ s' = (s ≤ₛ s') × (s ≠ s')
 
