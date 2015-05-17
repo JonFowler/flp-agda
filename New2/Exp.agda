@@ -27,7 +27,7 @@ fromValPos : ∀{m V}{σ : Subs m} → (x : Fin m) → ValPos (lookup x σ) → 
 fromValPos x (pos p) = mvar (x , p)
 fromValPos x Z = Z
 fromValPos x (S vp) = S (fromValPos x vp)
-
+‌
 
 sucVar : {V' : ℕ}(V : ℕ) → Fin (V + V') → Fin (V + suc V')
 sucVar zero n = suc n
