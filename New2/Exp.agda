@@ -150,6 +150,10 @@ data _⇥_ {m V : ℕ}{σ : Subs m} : Exp V σ → MVar σ → Set where
 _[_//_] : ∀{m}(σ : Subs m) → (x : MVar σ) → (s : Sub) → Subs m
 (s ∷ σ) [ zero , p // s' ] =  s [ p //ₛ s' ] ∷ σ
 (s ∷ σ) [ suc x , p // s' ] = s ∷ σ [ x , p // s' ]
+
+[//]-strict : ∀{m} (σ : Subs m) →  (x : MVar σ) → (s' : Sub) → (s' ≠ hole) → σ [ x // s' ] ≠ σ 
+[//]-strict (s ∷ σ) (zero , p) s' ne eq = [//ₛ]-strict s p s' ne (down∷ eq)
+[//]-strict (s ∷ σ) (suc x , p) s' ne eq = [//]-strict σ (x , p) s' ne (downl∷ eq)
     
 _/_ : ∀{m}{σ : Subs m} → (x : MVar σ) → (s : Sub) → σ ≤ σ [ x // s ]
 _/_ {σ = s ∷ σ} (zero , p) s' = (p /ₛ s') ∷ ≤-refl
@@ -159,12 +163,10 @@ _/_ {σ = s ∷ σ} (suc x , p) s' = ≤ₛ-refl ∷ (x , p) / s'
 --  narr : ∀{e} → (o : σ ≤ σ') → e ⇝G e ⟦ o ⟧
   
 data MinB {m : ℕ}{σ : Subs m} (x : MVar σ) : {σ' : Subs m}  → σ ≤ σ' → Set where
-  bindZ :  MinB x (x / Z)
-  bindS :  MinB x (x / S hole)
+  bind : ∀{s} → MinSub s →  MinB x (x / s)
   
 sucMinB : ∀{m s}{σ σ' : Subs m} → (x : Fin m) → (p : Pos (lookup x σ)) → (b : σ ≤ σ') → MinB (x , p) b → MinB (suc x , p) (≤ₛ-refl {s} ∷ b)
-sucMinB x p .((x , p) / Z) bindZ = bindZ
-sucMinB x p .((x , p) / S hole) bindS = bindS
+sucMinB x p .((x , p) / _) (bind s) = bind s
 
 --data _➣_ {m V : ℕ}{σ σ' : Subs m} : Exp V σ → (σ ≤ σ') → Set where 
 --  narr : ∀{e b} → (x : MVar σ) → (s : e ⇥ x) → (MinB x b) → e ➣ b
@@ -315,19 +317,28 @@ NSet-strict : ∀{m} → (σ : Subs m) → (B : {σ' : Subs m} → σ ≤ σ' �
 NSet-strict {m} σ B = ∀ {σ'} → (b : σ ≤ σ') → B b → σ < σ'
 
 MinB-complete : ∀{m} {σ : Subs m} → (x : MVar σ) → NSet-complete σ (MinB x) 
-MinB-complete {σ = (s ∷ σ)} (zero , p) (o ∷ os) (inp ∷ inps) with o [ₛ p ]
-MinB-complete {σ = (s ∷ σ)} (zero , p) (o ∷ os) (inp ∷ inps) | hole = {!!}
-MinB-complete {σ = (s ∷ σ)} (zero , p) (o ∷ os) (inp ∷ inps) | Z =  s [ p //ₛ Z ] ∷ σ , (p /ₛ Z) ∷ ≤-refl , bindZ , {!!} ∷ os
-MinB-complete {σ = (s ∷ σ)} (zero , p) (o ∷ os) (inp ∷ inps) | S c = s [ p //ₛ S hole ] ∷ σ , (p /ₛ S hole) ∷ ≤-refl , bindS , {!!} ∷ os
+MinB-complete {σ = (s ∷ σ)} (zero , p) (o ∷ os) (inp ∷ inps) with o [ₛ p ] | inspect (_[ₛ_] o) p
+MinB-complete {σ = (s ∷ σ)} (zero , p) (o ∷ os) (inp ∷ inps) | hole | [ eq ] = ⊥-elim ([ₛ]-inp inp o p eq)
+MinB-complete {σ = (s ∷ σ)} (zero , p) (o ∷ os) (inp ∷ inps) | Z | [ eq ] =  s [ p //ₛ Z ] ∷ σ , (p /ₛ Z) ∷ ≤-refl , bind Z , look-sub o p (subst (λ x → Z ≤ₛ x) (sym eq) ≤ₛ-Z) ∷ os
+MinB-complete {σ = (s ∷ σ)} (zero , p) (o ∷ os) (inp ∷ inps) | S c | [ eq ] = s [ p //ₛ S hole ] ∷ σ , (p /ₛ S hole) ∷ ≤-refl , bind Shole , look-sub o p (subst (λ x → S hole ≤ₛ x) (sym eq) (≤ₛ-S (≤ₛ-hole c)))  ∷ os
 MinB-complete {σ = (s ∷ σ)} (suc x , p) (o ∷ os) (inp ∷ inps) with MinB-complete (x , p) os inps
 MinB-complete {σ = (s ∷ σ)} (suc x , p) (o ∷ os) (inp ∷ inps) | σ' , os' , bs , lt = s ∷ σ' , ≤ₛ-refl ∷ os' , sucMinB x p os' bs , o ∷ lt
 
-⇝!-complete : ∀{m V}{σ τ : Subs m}{e' : Exp V τ}(e : Exp V σ) → (o : σ ≤ τ) → Inps τ → e ⟦ o ⟧ ↦* e' → e ⇝! e' 
-⇝!-complete e b inp [] = [] b 
-⇝!-complete e b inp (r ∷ r*) with decSusp e
-⇝!-complete e b inp (r ∷ r*) | yes (x , s) = {!!}
-⇝!-complete e b inp (r ∷ r*) | no ¬p with completeNotSusp b r ¬p
-⇝!-complete e b inp (r ∷ r*) | no ¬p | e'' , r' , refl = red r' ∷ ⇝!-complete e'' b inp r*
+MinB-strict : ∀{m}{σ : Subs m} → (x : MVar σ) → NSet-strict σ (MinB x) 
+MinB-strict {σ = σ} x .(x / Z) (bind Z) = x / Z , ≠sym ([//]-strict σ x Z (λ ()))
+MinB-strict {σ = σ} x .(x / S hole) (bind Shole) = x / S hole , ≠sym ([//]-strict σ x (S hole) (λ ()))
+--
+⇝!-complete : ∀{m V}{σ τ : Subs m}{e' : Exp V τ}(e : Exp V σ) → (o : σ ≤ τ) → Inps τ → Accs τ σ → e ⟦ o ⟧ ↦* e' → e ⇝! e' 
+⇝!-complete e b inp p [] = [] b 
+⇝!-complete {e' = e'} e b inp ac (r ∷ r*)  with decSusp e
+⇝!-complete {e' = e'} e b inp (accs p) (r ∷ r*)  | yes (x , s) with MinB-complete x b inp
+⇝!-complete {e' = e'} e b inp (accs p) (r ∷ r*)  | yes (x , s) | σ' , o , minb , b'  = 
+  narr (x , s) o minb  ∷ ⇝!-complete (e ⟦ o ⟧) b' inp (p σ' b' (MinB-strict x o minb)) (coerce₁ (r ∷ r*))
+    where coerce₁ = subst (λ z → z ↦* e') (trans (cong (λ z → e ⟦ z ⟧) (≤-uniq b (b' ≤-∘ o))) (sym (⟦⟧-func e o b')))
+⇝!-complete e b inp ac (r ∷ r*) | no ¬p with completeNotSusp b r ¬p
+⇝!-complete e b inp ac (r ∷ r*) | no ¬p | e'' , r' , refl = red r' ∷ ⇝!-complete e'' b inp ac r*
+
+
 --⇝F-complete {e = Z} o ()
 --⇝F-complete {e = S e} o ()
 --⇝F-complete {e = var x} o ()

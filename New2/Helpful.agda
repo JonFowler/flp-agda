@@ -14,5 +14,8 @@ subst₃ P refl refl refl a = a
 _≠_ : {A : Set} → A → A → Set
 a ≠ b = ¬ (a ≡ b)
 
+≠sym : {A : Set}{a b : A} → a ≠ b → b ≠ a
+≠sym eq x = eq (sym x)
+
 
 

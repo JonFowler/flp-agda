@@ -25,7 +25,13 @@ Subs = Vec Sub
 
 downS : {s s' : Sub} → S s ≡ S s'  → s ≡ s'
 downS refl = refl
-  
+
+down∷ : ∀{m}{A : Set}{s s' : A}{σ : Vec A m} → _≡_ {A = Vec A (suc m)} (s ∷ σ)  (s' ∷ σ) → s ≡ s'
+down∷ refl = refl
+
+downl∷ : ∀{m}{A : Set}{s : A}{σ σ' : Vec A m} → _≡_ {A = Vec A (suc m)} (s ∷ σ)  (s ∷ σ') → σ ≡ σ'
+downl∷ refl = refl 
+
 data Pos : Sub → Set where
   here : Pos hole
   there : ∀{s} → (Pos s) → Pos (S s)
@@ -145,6 +151,10 @@ _[_//ₛ_] : (s : Sub) →  (Pos s) → Sub → Sub
 _[_//ₛ_] hole here s' = s'
 _[_//ₛ_] (S s) (there p) s' = S  (s [ p //ₛ s' ])
 
+[//ₛ]-strict : (s : Sub) →  (p : Pos s) → (s' : Sub) → (s' ≠ hole) → s [ p //ₛ s' ] ≠ s
+[//ₛ]-strict .hole here s' neq x = neq x
+[//ₛ]-strict (S s) (there p) s' neq x = [//ₛ]-strict s p s' neq (downS x)
+
 look-sub :  ∀{s s' s''} → (b : s ≤ₛ s') → (p : Pos s) → s'' ≤ₛ b [ₛ p ] → s [ p //ₛ s'' ] ≤ₛ s'
 look-sub (≤ₛ-hole s) here o = o
 look-sub (≤ₛ-S b) (there p) o = ≤ₛ-S (look-sub b p o)
@@ -153,7 +163,9 @@ _+⟨_,_⟩_ : ∀{s s' s''} → (p : Pos s) → (b : s ≤ₛ s') → (b [ₛ p
 here +⟨ ≤ₛ-hole s , refl ⟩ p' = p' -- p'
 there p +⟨ ≤ₛ-S b , eq ⟩ p' = there (p +⟨ b , eq ⟩ p') -- there (p +ₚ p')
 
-
+data MinSub : Sub → Set where
+  Z : MinSub Z
+  Shole : MinSub (S hole)
 
 addp : ∀{s s'} → (p : Pos s) → (b : s ≤ₛ s') → (p' : Pos (b [ₛ p ])) → Pos s'
 addp here (≤ₛ-hole s) p' = p'
