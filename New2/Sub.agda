@@ -488,7 +488,10 @@ mono-diffs {._} {._} {s ∷ σ} {s' ∷ σ'} (o ∷ os) (o' ∷ os') (so ∷ so'
 
 data Accs {m : ℕ} (τ : Subs m) (σ : Subs m) : Set where
   accs : (∀ σ' → σ' ≤ τ → σ < σ' → Accs τ σ') → Accs τ σ 
+  
  
 accs' : ∀{m}{τ : Subs m} → (σ : Subs m) → (o : σ ≤ τ) → WF (diffs o) → (σ' : Subs m) → σ' ≤ τ → σ < σ' →  Accs τ σ'
 accs' s o (acc f) s' o' so = accs (accs' s' o' (f (diffs o') (mono-diffs o o' so)))
  
+mkAcc : ∀{m}{σ τ : Subs m} → σ ≤ τ → Accs τ σ
+mkAcc {σ = σ} b = accs (λ σ' x x₁ → accs' σ b (mkWF (diffs b)) σ' x x₁)

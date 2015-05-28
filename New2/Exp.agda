@@ -21,6 +21,7 @@ data Exp {M : ℕ} (V : ℕ) (σ : Subs M) : Set where
   S :  Exp V σ → Exp V σ
   var : Fin V → Exp V σ 
   mvar : MVar σ  → Exp V σ 
+  target : Exp V σ
   case_alt₀_altₛ_ : Exp V σ → Exp V σ → Exp (suc V) σ → Exp V σ
  
 fromValPos : ∀{m V}{σ : Subs m} → (x : Fin m) → ValPos (lookup x σ) → Exp V σ
@@ -39,6 +40,7 @@ sucExp V Z = Z
 sucExp V (S x) = S (sucExp V x)
 sucExp V (var x) = var (sucVar V x) 
 sucExp V (mvar x) = mvar x
+sucExp V target = target
 sucExp V (case e alt₀ e₁ altₛ e₂) = case (sucExp V e) alt₀ (sucExp V e₁) altₛ sucExp (suc V) e₂
 
 rep : {V' m : ℕ}{σ : Subs m} (V : ℕ) → Exp (V + suc V') σ → Exp V' σ → Exp (V + V') σ
@@ -50,6 +52,7 @@ rep (suc V) (var zero) ef = var zero
 rep (suc V) (var (suc x)) ef with rep V (var x) ef
 ... | e' = sucExp 0 e'
 rep V (mvar x) ef = mvar x 
+rep V target ef = target 
 rep V (case e alt₀ e₁ altₛ e₂) ef = case rep V e ef alt₀ rep V e₁ ef altₛ rep (suc V) e₂ ef
 
 _⟪_⟫ : {m V : ℕ}{σ : Subs m} → Exp (suc V) σ → Exp V σ → Exp V σ
@@ -59,6 +62,7 @@ data _↦_ {m V : ℕ}{σ : Subs m} : Exp V σ → Exp V σ → Set where
   caseZ :  (e₀ : Exp V σ) → (eₛ : Exp (suc V) σ) → case Z alt₀ e₀ altₛ eₛ ↦ e₀
   caseS : (e : Exp V σ) → (e₀ : Exp V σ) → (eₛ : Exp (suc V) σ)   
                 → case (S e) alt₀ e₀ altₛ eₛ ↦ eₛ ⟪ e ⟫
+  caseT : ∀{e₀ eₛ} →  case target alt₀ e₀ altₛ eₛ ↦ target
   prom : {e e' e₀ : Exp V σ}{eₛ : Exp (suc V) σ} → e ↦ e' → 
                case e alt₀ e₀ altₛ eₛ ↦ case e' alt₀ e₀ altₛ eₛ
                
@@ -68,6 +72,7 @@ data _↦*_ {m V : ℕ}{σ : Subs m} : Exp V σ → Exp V σ → Set where
   [] : ∀{e} → e ↦* e 
   _∷_ : ∀{e e' e''} → (r : e ↦ e') → (r* : e' ↦* e'') → e ↦* e''
   
+ 
 
 _⇀_ : ∀{m} → Subs m → Subs m → Set
 _⇀_ {m} σ σ' = {V : ℕ} → MVar σ → Exp V σ'
@@ -77,6 +82,7 @@ _=<<E_ f Z = Z
 _=<<E_ f (S e) = S (f =<<E e)
 _=<<E_ f (var x) = var x
 _=<<E_ f (mvar x) = f x
+_=<<E_ f target = target
 _=<<E_ f (case e alt₀ e₁ altₛ e₂) = case f =<<E e alt₀ f =<<E e₁ altₛ (f =<<E e₂)
 
 returnE : ∀{m}{σ : Subs m} → σ ⇀ σ 
@@ -87,6 +93,7 @@ returnE = mvar
 =<<E-left (S e) = cong S (=<<E-left e)
 =<<E-left (var x) = refl
 =<<E-left (mvar x) = refl
+=<<E-left target = refl
 =<<E-left (case e alt₀ e₁ altₛ e₂) = cong₃ case_alt₀_altₛ_ (=<<E-left e) (=<<E-left e₁) (=<<E-left e₂)
 
 =<<E-right : ∀{m V}{σ σ' : Subs m} → 
@@ -102,6 +109,7 @@ _=<<E-eq_ f Z = refl
 _=<<E-eq_ f (S e) = cong S (f =<<E-eq e)
 _=<<E-eq_ f (var x) = refl
 _=<<E-eq_ f (mvar x) = f x
+_=<<E-eq_ f target = refl
 _=<<E-eq_ f (case e alt₀ e₁ altₛ e₂) = cong₃ case_alt₀_altₛ_ (f =<<E-eq e) (f =<<E-eq e₁) (f =<<E-eq e₂)
 
 =<<E-func : ∀{V m}{σ σ' σ'' : Subs m} (f : σ ⇀ σ') → (g : σ' ⇀ σ'') → (e : Exp V σ) → 
@@ -110,6 +118,7 @@ _=<<E-eq_ f (case e alt₀ e₁ altₛ e₂) = cong₃ case_alt₀_altₛ_ (f =<
 =<<E-func f g (S e) = cong S (=<<E-func f g e)
 =<<E-func f g (var x) = refl
 =<<E-func f g (mvar x) = refl
+=<<E-func f g target = refl
 =<<E-func f g (case e alt₀ e₁ altₛ e₂) = cong₃ case_alt₀_altₛ_ (=<<E-func f g e) (=<<E-func f g e₁) (=<<E-func f g e₂)
 
 fromValPos-func : ∀{m V}{σ σ' : Subs m} → (x : Fin m) → 
@@ -141,7 +150,8 @@ e ⟦ σ ⟧ =  (λ {(x , p) → fromValPos x (toValPos p (lookupI₂ x σ))}) =
          e ⟦ o ⟧ ≡ e ⟦ o' ⟧
 ⟦⟧-uniq e o o' = cong (λ x → e ⟦ x ⟧) (≤-uniq o o')
 
-
+data Reach {m V : ℕ}{σ : Subs m}(e : Exp V σ) : (Subs m) → Set where
+  mem : {τ : Subs m} → Inps τ → (b : σ ≤ τ) → (e ⟦ b ⟧ ↦* target) → Reach e τ
 
 data _⇥_ {m V : ℕ}{σ : Subs m} : Exp V σ → MVar σ → Set where
     susp : (x : MVar σ) → mvar x ⇥ x
@@ -159,26 +169,11 @@ _/_ : ∀{m}{σ : Subs m} → (x : MVar σ) → (s : Sub) → σ ≤ σ [ x // s
 _/_ {σ = s ∷ σ} (zero , p) s' = (p /ₛ s') ∷ ≤-refl
 _/_ {σ = s ∷ σ} (suc x , p) s' = ≤ₛ-refl ∷ (x , p) / s'
 
---data _⇝G_ {m V : ℕ}{σ σ' : Subs m} : Exp V σ → Exp V σ' → Set where 
---  narr : ∀{e} → (o : σ ≤ σ') → e ⇝G e ⟦ o ⟧
-  
 data MinB {m : ℕ}{σ : Subs m} (x : MVar σ) : {σ' : Subs m}  → σ ≤ σ' → Set where
   bind : ∀{s} → MinSub s →  MinB x (x / s)
   
 sucMinB : ∀{m s}{σ σ' : Subs m} → (x : Fin m) → (p : Pos (lookup x σ)) → (b : σ ≤ σ') → MinB (x , p) b → MinB (suc x , p) (≤ₛ-refl {s} ∷ b)
 sucMinB x p .((x , p) / _) (bind s) = bind s
-
---data _➣_ {m V : ℕ}{σ σ' : Subs m} : Exp V σ → (σ ≤ σ') → Set where 
---  narr : ∀{e b} → (x : MVar σ) → (s : e ⇥ x) → (MinB x b) → e ➣ b
-  
---⇝N-mono : ∀{V m}{σ σ' : Subs m}{e : Exp V σ}{e' : Exp V σ'} → e ⇝N e' → σ ≤ σ'
---⇝N-mono (narrZ x x₁)  =  x / Z 
---⇝N-mono (narrS x x₁)  = x / S hole
---
-
---⇝N-⇝G : {m V : ℕ}{σ σ' : Subs m}{e : Exp V σ}{e' : Exp V σ'} → e ⇝N e' → e ⇝G e'
---⇝N-⇝G (narrZ x s) = narr (x / Z)
---⇝N-⇝G (narrS x s) = narr (x / S hole)
 
 ExpP : Set₁
 ExpP = ∀ {m V}{σ : Subs m} → Exp V σ → Set
@@ -206,9 +201,6 @@ _⇝_ = NRed Susp MinBs
 ⇝-mono (narr x o b) = o -- ⇝N-mono n
 ⇝-mono (red x) = ≤-refl
 
---data _⇝F_ {m V : ℕ}{σ : Subs m} : {σ' : Subs m} → Exp V σ → Exp V σ' → Set where
---  fill : ∀{e σ' σ''}{e' : Exp V σ'} → e ⇝ e' → (o : σ' ≤ σ'') → e ⇝F e' ⟦ o ⟧
---
 data NRed! {m V : ℕ}(P : ExpP)(Q : NarrS P) {σ : Subs m} : 
               {σ' : Subs m} → Exp V σ → Exp V σ' → Set  where
   [] : ∀{e σ'} → (o : σ ≤ σ') → NRed! P Q e (e ⟦ o ⟧)
@@ -217,7 +209,11 @@ data NRed! {m V : ℕ}(P : ExpP)(Q : NarrS P) {σ : Subs m} :
 --
 _⇝!_ : {m V : ℕ}{σ σ' : Subs m} → Exp V σ → Exp V σ' → Set  
 _⇝!_ = NRed! Susp MinBs
-  
+
+data ReachF {m V : ℕ}{σ : Subs m}(e : Exp V σ) : (Subs m) → Set where
+  mem : {τ : Subs m} → Inps τ → _⇝!_ {σ' = τ} e target → ReachF e τ
+
+ 
 
 ⇝!-mono : ∀{V m}{P : ExpP}{Q : NarrS P}{σ σ' : Subs m}{e : Exp V σ}{e' : Exp V σ'} → NRed! P Q e e' → σ ≤ σ'
 ⇝!-mono ([] o) = o 
@@ -234,6 +230,7 @@ sucExp-func V Z o = refl
 sucExp-func V (S e) o = cong S (sucExp-func V e o)
 sucExp-func V (var x) o = refl
 sucExp-func V (mvar (x , p)) o = sucExp-fromVP V x (toValPos p (lookupI₂ x o))
+sucExp-func V target o = refl 
 sucExp-func V (case e alt₀ e₁ altₛ e₂) o = cong₃ case_alt₀_altₛ_ (sucExp-func V e o) (sucExp-func V e₁ o) (sucExp-func (suc V) e₂ o) 
 
 rep-fromVP : {V' m : ℕ}{σ : Subs m}(V : ℕ) → (e' : Exp V' σ) → (x : Fin m) →  (vp : ValPos (lookup x σ))    →  rep V (fromValPos x vp) e' ≡ fromValPos x vp
@@ -250,6 +247,7 @@ rep-func (suc V) (var zero) e' o = refl
 rep-func (suc V) (var (suc x)) e' o with rep-func V (var x) e' o
 ...| p = trans (cong (sucExp 0) p) (sucExp-func zero (rep V (var x) e') o)
 rep-func V (mvar (x , p)) e' o = rep-fromVP V (e' ⟦ o ⟧) x (toValPos p (lookupI₂ x o))
+rep-func V target e' o = refl 
 rep-func V (case e alt₀ e₁ altₛ e₂) e' o = cong₃ case_alt₀_altₛ_ (rep-func V e e' o) (rep-func V e₁ e' o) (rep-func (suc V) e₂ e' o)
 
 ↦-lift : ∀{m V}{σ σ' : Subs m}{e e' : Exp V σ} → e ↦ e' → (o : σ ≤ σ') → e ⟦ o ⟧ ↦ e' ⟦ o ⟧
@@ -258,16 +256,12 @@ rep-func V (case e alt₀ e₁ altₛ e₂) e' o = cong₃ case_alt₀_altₛ_ (
        (λ e' → ((case (S e) alt₀ e₀ altₛ eₛ) ⟦ o ⟧) ↦ e') 
        (rep-func zero eₛ e o) 
        (caseS (e ⟦ o ⟧) (e₀ ⟦ o ⟧) (eₛ ⟦ o ⟧))
+↦-lift caseT o = caseT
 ↦-lift (prom r) o = prom (↦-lift r o)
 
 ↦*-lift : ∀{m V}{σ σ' : Subs m}{e e' : Exp V σ} → e ↦* e' → (o : σ ≤ σ') → e ⟦ o ⟧ ↦* e' ⟦ o ⟧
 ↦*-lift [] o = []
 ↦*-lift (x ∷ r) o = ↦-lift x o ∷ ↦*-lift r o
-
-
---⇝-sound : ∀{m V}{σ σ' : Subs m}{e : Exp V σ}{e' : Exp V σ'} → (r : e e') → e ⟦ ⇝-mono r ⟧ ↦ e'
---⇝-sound (narr x o b r) = r
---⇝-sound {e' = e'} (red r) = subst (λ x → x ↦ e') (sym (⟦⟧-refl ≤-refl)) r
 
 NRed!-sound : ∀{m V}{P : ExpP}{Q : NarrS P}{σ σ' : Subs m}{e : Exp V σ}{e' : Exp V σ'} → (r : NRed! P Q e e') → e ⟦ ⇝!-mono r ⟧ ↦* e'
 NRed!-sound ([] o) = []
@@ -275,12 +269,17 @@ NRed!-sound {e = e}{e'} (narr p b x ∷ r!) = coerce₁ (NRed!-sound r!)
   where coerce₁ = subst (λ a → a ↦* e') (⟦⟧-func e b (⇝!-mono r!))
 NRed!-sound {e = e}{e'} (red r ∷ r!) = coerce₁ (↦-lift r (⇝!-mono r!) ∷ NRed!-sound r!)
   where coerce₁ = subst (λ x → e ⟦ x ⟧ ↦* e') (≤-uniq (⇝!-mono r!) (⇝!-mono r! ≤-∘ ≤-refl)) 
+  
+⇝!-sound : ∀{m V}{σ σ' : Subs m}{e : Exp V σ}{e' : Exp V σ'} → (r : e ⇝! e') → e ⟦ ⇝!-mono r ⟧ ↦* e'
+⇝!-sound = NRed!-sound 
+
 
 completeNotSusp : ∀{m V}{σ σ' : Subs m}{e : Exp V σ}{e' : Exp V σ'} → (b : σ ≤ σ') → e ⟦ b ⟧ ↦ e' → ¬ (Susp e) →  Σ (Exp V σ) (λ e'' → e ↦ e'' × e'' ⟦ b ⟧ ≡ e')
 completeNotSusp {e = Z} b () ¬s
 completeNotSusp {e = S e} b () ¬s
 completeNotSusp {e = var x} b () ¬s
 completeNotSusp {e = mvar x} b r ¬s = ⊥-elim (¬s (x , susp x))
+completeNotSusp {e = target} b () ¬s  
 completeNotSusp {e = case Z alt₀ e₁ altₛ e₂} b (caseZ ._ ._) ¬s = e₁ , caseZ e₁ e₂ , refl
 completeNotSusp {e = case Z alt₀ e₁ altₛ e₂} b (prom ()) ¬s
 completeNotSusp {m}{V} {e = case S e alt₀ e₁ altₛ e₂} b (caseS ._ ._ ._) ¬s = 
@@ -288,6 +287,8 @@ completeNotSusp {m}{V} {e = case S e alt₀ e₁ altₛ e₂} b (caseS ._ ._ ._)
 completeNotSusp {e = case S e alt₀ e₁ altₛ e₂} b (prom ()) ¬s
 completeNotSusp {e = case var x alt₀ e₁ altₛ e₂} b (prom ()) ¬s
 completeNotSusp {e = case mvar x alt₀ e₁ altₛ e₂} b r ¬s = ⊥-elim (¬s (x , subj-susp (susp x)))
+completeNotSusp {e = case target alt₀ e₁ altₛ e₂} b caseT ¬s = target , caseT , refl
+completeNotSusp {e = case target alt₀ e₁ altₛ e₂} b (prom ()) ¬s
 completeNotSusp {e = case case e alt₀ e₁ altₛ e₂ alt₀ e₃ altₛ e₄} b (prom r) ¬s 
   with completeNotSusp {e = case e alt₀ e₁ altₛ e₂} b r (λ {(x , sus) → ¬s (x , (subj-susp sus))})
 completeNotSusp {m} {V} {σ} {σ'} {case case e alt₀ e₁ altₛ e₂ alt₀ e₃ altₛ e₄} b (prom r) ¬s 
@@ -298,18 +299,11 @@ decSusp Z = no (λ {( x , () )} )
 decSusp (S e) = no (λ {( x , () )} )
 decSusp (var x) = no (λ {( x , () )} )
 decSusp (mvar x) = yes (x , susp x)
+decSusp target = no (λ {( x , ())}) 
 decSusp (case e alt₀ e₁ altₛ e₂) with decSusp e
 decSusp (case e alt₀ e₁ altₛ e₂) | yes (x , s) = yes (x , subj-susp s)
 decSusp (case e alt₀ e₁ altₛ e₂) | no ¬p = no (λ {(x , subj-susp s) → ¬p (x , s)})
   
-
---↦-NotFromVal : ∀{m V}{σ : Subs m}{e' : Exp V σ} → (x : Fin m) → (vp : ValPos (lookup x σ)) →  ¬ (fromValPos x vp ↦ e')
---↦-NotFromVal x (pos p) ()
---↦-NotFromVal x Z ()
---↦-NotFromVal x (S vp) ()
---
-
-
 NSet-complete : ∀{m} → (σ : Subs m) → (B : {σ' : Subs m} → σ ≤ σ' → Set) → Set
 NSet-complete {m} σ B = {τ : Subs m} → σ ≤ τ → Inps τ → ∃₂ (λ σ' b → B {σ'} b × σ' ≤ τ )
 
@@ -337,67 +331,10 @@ MinB-strict {σ = σ} x .(x / S hole) (bind Shole) = x / S hole , ≠sym ([//]-s
     where coerce₁ = subst (λ z → z ↦* e') (trans (cong (λ z → e ⟦ z ⟧) (≤-uniq b (b' ≤-∘ o))) (sym (⟦⟧-func e o b')))
 ⇝!-complete e b inp ac (r ∷ r*) | no ¬p with completeNotSusp b r ¬p
 ⇝!-complete e b inp ac (r ∷ r*) | no ¬p | e'' , r' , refl = red r' ∷ ⇝!-complete e'' b inp ac r*
-
-
---⇝F-complete {e = Z} o ()
---⇝F-complete {e = S e} o ()
---⇝F-complete {e = var x} o ()
---⇝F-complete {e = mvar (x , p)} o r = ⊥-elim (↦-NotFromVal x (toValPos p (lookupI₂ x o)) r)
---⇝F-complete {e = case Z alt₀ e₁ altₛ e₂} o (caseZ ._ ._) = fill (red (caseZ e₁ e₂)) o
---⇝F-complete {e = case Z alt₀ e₁ altₛ e₂} o (prom ())
---⇝F-complete {e = case S e alt₀ e₁ altₛ e₂} o (caseS ._ ._ ._) = let
---       coerce₁ = subst (λ x → case S e alt₀ e₁ altₛ e₂ ⇝F x) (sym (rep-func zero e₂ e o))
---    in coerce₁ (fill (red (caseS e e₁ e₂)) o)
---⇝F-complete {e = case S e alt₀ e₁ altₛ e₂} o (prom ())
---⇝F-complete {e = case var x alt₀ e₁ altₛ e₂} o (prom ())
---⇝F-complete {e = case mvar (x , p) alt₀ e₁ altₛ e₂} o r 
---            with (toValPos p (lookupI₂ x o)) | inspect (toValPos p) (lookupI₂ x o)
---⇝F-complete {m} {V} {σ} {σ'} {._} {case mvar (x , p) alt₀ e₁ altₛ e₂} o (prom ()) | pos p₁ | eq
---⇝F-complete {m} {V} {σ} {σ'} {._} {case mvar (x , p) alt₀ e₁ altₛ e₂} o (caseZ ._ ._) | Z | [ eq ] =
---  let b = (x , p) / Z
---      s = subj-susp {e₀ = e₁}{e₂} (susp (x , p)) 
---      r' = narr (x , p) {s} b  bindZ {!!} -- (caseZ (e₁ ⟦ b ⟧) (e₂ ⟦ b ⟧))
---  in {!!}
---⇝F-complete {m} {V} {σ} {σ'} {._} {case mvar (x , p) alt₀ e₁ altₛ e₂} o (prom ()) | Z | eq
---⇝F-complete {m} {V} {σ} {σ'} {._} {case mvar (x , p) alt₀ e₁ altₛ e₂} o (caseS .(fromValPos x c) ._ ._) | S c | [ eq ] = {!!}
---⇝F-complete {m} {V} {σ} {σ'} {._} {case mvar (x , p) alt₀ e₁ altₛ e₂} o (prom ()) | S c | eq
---⇝F-complete {e = case case e alt₀ e₁ altₛ e₂ alt₀ e₃ altₛ e₄} o (prom r)  with ⇝F-complete {e = case e alt₀ e₁ altₛ e₂} o r
---⇝F-complete {m} {V} {σ} {σ'} {._} {case case e alt₀ e₁ altₛ e₂ alt₀ e₃ altₛ e₄} o (prom r) 
---  | fill (narr {e' = e'} x {s} o' b r') o₁ = coerce₁ (fill (narr x {s'} o' b promr) o₁) 
---    where
---      s' = subj-susp {e₀ = e₃}{eₛ = e₄} s
---      promr = prom {e₀ = e₃ ⟦ o' ⟧} {eₛ = e₄ ⟦ o' ⟧} r'
---      coerce₁ = subst₂ (λ x₁ x₂ → 
---                (case (case e alt₀ e₁ altₛ e₂) alt₀ e₃ altₛ e₄) ⇝F  case e' ⟦ o₁ ⟧ alt₀ x₁ altₛ x₂) 
---                (trans (⟦⟧-func e₃ o' o₁) (⟦⟧-uniq e₃ (o₁ ≤-∘ o') o)) 
---                (trans (⟦⟧-func e₄ o' o₁) (⟦⟧-uniq e₄ (o₁ ≤-∘ o') o))
---
---⇝F-complete {m} {V} {σ} {σ'} {._} {case case e alt₀ e₁ altₛ e₂ alt₀ e₃ altₛ e₄} o (prom r) 
---  | fill (red r') o₁ with ≤-uniq o o₁
---⇝F-complete {m} {V} {σ} {σ'} {._} {case case e alt₀ e₁ altₛ e₂ alt₀ e₃ altₛ e₄} o (prom r) 
---  | fill (red r') .o | refl = fill (red (prom r')) o 
-
---⇝!-complete : ∀{m V}{σ σ' : Subs m}{e' : Exp V σ'}{e : Exp V σ} → (o : σ ≤ σ') → e ⟦ o ⟧ ↦* e' → e ⇝! e' 
---⇝!-complete {e = e} o [] = [] o
---⇝!-complete {e = Z} o (() ∷ r)
---⇝!-complete {e = S e} o (() ∷ r)
---⇝!-complete {e = var x} o (() ∷ r)
---⇝!-complete {e = mvar (x , p)} o (x₁ ∷ r) =  ⊥-elim (↦-NotFromVal x (toValPos p (lookupI₂ x o)) x₁)
---⇝!-complete {e = case Z alt₀ e₁ altₛ e₂} o (x ∷ r) = {!!}
---⇝!-complete {e = case S e alt₀ e₁ altₛ e₂} o (x ∷ r) = {!!}
---⇝!-complete {e = case var x alt₀ e₁ altₛ e₂} o (prom () ∷ r)
---⇝!-complete {e = case mvar x alt₀ e₁ altₛ e₂} o (x₁ ∷ r) = {!!}
---⇝!-complete {e = case case e alt₀ e₁ altₛ e₂ alt₀ e₃ altₛ e₄} o (prom r ∷ r*) with ⇝!-complete {e = case e alt₀ e₁ altₛ e₂} o (r ∷ [])
---⇝!-complete {m} {V} {σ} {σ'} {e'} {case case e alt₀ e₁ altₛ e₂ alt₀ e₃ altₛ e₄} o (prom r ∷ r*) | [] o₁ = ⇝!-complete {!!} {!!} -- (↦*-lift {!r*!} {!!})
---⇝!-complete {m} {V} {σ} {σ''} {e''} {case case e alt₀ e₁ altₛ e₂ alt₀ e₃ altₛ e₄} o (prom r ∷ r*) | x ∷ r' = {!!}
-          
-
-
---   bindZ : (x : Fin m) → (p : Pos (lookup x σ)) → (mvar x p) ⇝⟨ {!!} ⟩⇝ Z
---   bindS : (x : Fin m) → (p : Pos (lookup x σ)) → (mvar x p) ⇝⟨ {!!} ⟩⇝ S (mvar x {!!}) 
---   bindS :                    (mvar x p S) (p +ₚ there here)
-  
-
  
- 
+reachSound : ∀{m V}{σ : Subs m}{e : Exp V σ}{τ : Subs m} → ReachF e τ → Reach e τ
+reachSound (mem x x₁) = mem x (⇝!-mono x₁) (⇝!-sound x₁)
+
+reachComp : ∀{m V}{σ : Subs m}{e : Exp V σ}{τ : Subs m} → Reach e τ → ReachF e τ
+reachComp {e = e} (mem x b r) = mem x (⇝!-complete e b x (mkAcc b) r) 
 
