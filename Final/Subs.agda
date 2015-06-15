@@ -40,6 +40,9 @@ Empty? (X ∪ Y) | no ¬p | b = no (λ ¬e → ¬p (λ x → ¬e (inL x)))
 _⇀_ : VarSet → VarSet → Set
 _⇀_ M N = Var M → Val N
 
+⇀-id : ∀{X} → X ⇀ X
+⇀-id x = fvar x
+
 _>>=_ : {X Y : VarSet} →  Val X → (X ⇀ Y) → Val Y
 fvar x >>= f = f x
 Z >>= f = Z
@@ -82,8 +85,6 @@ data MinVal : {X : VarSet} → Val X → Set where
    bindZ : MinVal {∅} Z
    bindS : MinVal {V1} (S (fvar here))
 
-data MinSub {X : VarSet} : {Y : VarSet} → X ⇀ Y → Set where 
-  
 
 
 --bindX : ∀{M} (x : Fin (suc M)) → Val (Fin M) → Val (Fin (suc M)) → Val (Fin M)
