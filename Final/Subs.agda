@@ -9,6 +9,7 @@ open import Data.Nat
 open import Data.Fin
 open import Relation.Nullary 
 
+postulate ext : {A B : Set}{f g : A → B} →  ((x : A) → f x ≡ g x) → f ≡ g
  
 data VarSet : Set where
   ∅ : VarSet
@@ -85,6 +86,11 @@ data MinVal : {X : VarSet} → Val X → Set where
    bindZ : MinVal {∅} Z
    bindS : MinVal {V1} (S (fvar here))
 
+_⊆_ : ∀{X Y Z} → X ⇀ Y → X ⇀ Z → Set
+τ ⊆ σ = ∃ (λ σ' → τ ≡ σ >=> σ')
+
+_⊂_ : ∀{X Y Z} → X ⇀ Y → X ⇀ Z → Set
+τ ⊂ σ = τ ⊆ σ × ¬ (σ ⊆ τ)
 
 
 --bindX : ∀{M} (x : Fin (suc M)) → Val (Fin M) → Val (Fin (suc M)) → Val (Fin M)
