@@ -17,10 +17,10 @@ data Exp (V : ℕ) (X : VarSet) : Set where
   fvar : (x : Var X) → Exp V X
   case_alt₀_altₛ_ : (e : Exp V X) → (e₀ : Exp V X) → (eₛ : Exp (suc V) X) → Exp V X
   
-embed : ∀{V X} → Val X → Exp V X
-embed (fvar x) = fvar x
-embed Z = Z
-embed (S a) = S (embed a)
+⌈_⌉ : ∀{V X} → Val X → Exp V X
+⌈ fvar x ⌉ = fvar x
+⌈ Z ⌉ = Z
+⌈ S a ⌉ = S ⌈ a ⌉
 
 sucVar : {V' : ℕ}(V : ℕ) → Fin (V + V') → Fin (V + suc V')
 sucVar zero n = suc n
@@ -68,7 +68,7 @@ _⟦_⟧ : ∀{V X Y} →  (e : Exp V X) → X ⇀ Y → Exp V Y
 Z ⟦ σ ⟧ = Z
 S e ⟦ σ ⟧ = S (e ⟦ σ ⟧)
 var x ⟦ σ ⟧ = var x
-fvar x ⟦ σ ⟧ = embed (σ x)
+fvar x ⟦ σ ⟧ = ⌈ σ x ⌉
 (case e alt₀ e₀ altₛ eₛ) ⟦ σ ⟧ = case e ⟦ σ ⟧ alt₀ e₀ ⟦ σ ⟧ altₛ eₛ ⟦ σ ⟧ 
 
 ⟦⟧-id : ∀{V X} → (e : Exp V X) → e ⟦ return ⟧ ≡ e
@@ -79,10 +79,10 @@ fvar x ⟦ σ ⟧ = embed (σ x)
 ⟦⟧-id (case e alt₀ e₀ altₛ eₛ) = cong₃ case_alt₀_altₛ_ (⟦⟧-id e) (⟦⟧-id e₀) (⟦⟧-id eₛ)
 
 ⟦⟧-var :  ∀{V X Y} → (x : Var X) → (σ : X ⇀ Y)
-          → _⟦_⟧ {V} (fvar x) σ ≡ embed (σ x)
+          → _⟦_⟧ {V} (fvar x) σ ≡ ⌈ σ x ⌉
 ⟦⟧-var x f = refl
 
-embed-func : ∀{V X Y} → (a : Val X) → (σ : X ⇀ Y) → embed {V} a ⟦ σ ⟧ ≡ embed (a >>= σ)
+embed-func : ∀{V X Y} → (a : Val X) → (σ : X ⇀ Y) → ⌈ a ⌉ ⟦ σ ⟧ ≡ ⌈_⌉ {V} (a >>= σ)
 embed-func (fvar x) σ = refl
 embed-func Z σ = refl
 embed-func (S a) σ = cong S (embed-func a σ)
@@ -114,7 +114,7 @@ data NRed⁺ {V : ℕ}{X : VarSet}(P : Narr) : {Y : VarSet} → Exp V X → Exp 
          NRed P {Y} e (e' , σ) → NRed⁺ P {Z} e' (e'' , τ) → NRed⁺ P e (e'' , σ >=> τ)
          
 sucExp-fromV : ∀{V' X}(V : ℕ) → (a : Val X) →  
-              sucExp {V'} V (embed a) ≡ embed a
+              sucExp {V'} V ⌈ a ⌉ ≡ ⌈ a ⌉
 sucExp-fromV V (fvar x) = refl
 sucExp-fromV V Z = refl
 sucExp-fromV V (S a) = cong S (sucExp-fromV V a)
@@ -128,7 +128,7 @@ sucExp-func V (fvar x) σ = sucExp-fromV V (σ x)
 sucExp-func V (case e alt₀ e₁ altₛ e₂) σ = cong₃ case_alt₀_altₛ_ (sucExp-func V e σ) (sucExp-func V e₁ σ) (sucExp-func (suc V) e₂ σ) 
 
 rep-fromV : ∀{V' X}(V : ℕ) → (e : Exp V' X) →  (a : Val X) →  
-          rep V (embed a) e ≡ embed a 
+          rep V ⌈ a ⌉ e ≡ ⌈ a ⌉
 rep-fromV V e (fvar x) = refl
 rep-fromV V e Z = refl
 rep-fromV V e (S a) = cong S (rep-fromV V e a)

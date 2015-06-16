@@ -44,10 +44,16 @@ _⇀_ M N = Var M → Val N
 ⇀-id : ∀{X} → X ⇀ X
 ⇀-id x = fvar x
 
+coll : ∀{Y} → Empty Y → Var Y → Var ∅
+coll p x = ⊥-elim (p x)
+
 _>>=_ : {X Y : VarSet} →  Val X → (X ⇀ Y) → Val Y
 fvar x >>= f = f x
 Z >>= f = Z
 S a >>= f = S (a >>= f)
+
+collapse : ∀{X Y} → X ⇀ Y → Empty Y → X ⇀ ∅
+collapse τ p x = τ x >>= (fvar ∘ coll p)
 
 _>=>_ : {X Y Z : VarSet} → (X ⇀ Y) → (Y ⇀ Z) → X ⇀ Z
 _>=>_ f g a = f a >>= g
