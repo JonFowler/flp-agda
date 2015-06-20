@@ -325,8 +325,6 @@ countS {X ∪ X₁} (inR x) a sur τ = let
                            (sym (ext (λ x' → >>=-assoc ((x / a) x') (fvar ∘ inR) τ))) le 
    in <-add2 {count (τ ∘ inL)} ≤-refl le' 
 
-
-
 countSurj : {X Y Z : VarSet} → (τ : X ⇀ Z) → (x : Var X) → (a : Val Y) → surjₚ a →
           (τ' : X [ x // Y ] ⇀ Z) → τ ≡ (x / a) >=> τ' → count τ' ≤ count τ
 countSurj ._ x a sur τ' refl = countS x a sur τ'
@@ -341,7 +339,28 @@ countSurj ._ x a sur τ' refl = countS x a sur τ'
 --τ' < τ = (τ' ≤ τ) × ¬ (τ ≤ τ')
 
 data Acc {A : Set} (_<-t_ : A → A → Set) (x : A) : Set where
-  acc : ((y : A) → (y <-t x) → Acc (_<-t_) y) →  Acc (_<-t_) x
+  acc : ({y : A} → (y <-t x) → Acc (_<-t_) y) →  Acc (_<-t_) x
+  
+transN : ∀{m n o} → m ≤ n → n ≤ o → m ≤ o
+transN z≤n o' = z≤n
+transN (s≤s o₁) (s≤s o') = s≤s (transN o₁ o')
+  
+acc-< : (n : ℕ) → Acc _<_ n 
+acc-< n = acc (go n) 
+  where
+    go : (n : ℕ) → {m : ℕ} → m < n → Acc _<_ m 
+    go zero {m} ()
+    go (suc n) {zero} lt = acc (λ ())
+    go (suc n) {suc m} (s≤s m<n) = acc (λ {o} o<sm → go n {o} (transN o<sm m<n))
+    
+<-func : {A : Set} → (A → A → Set) → (f : A → ℕ) → Set
+<-func {A} _<<_ f = {x y : A} → x << y → f x < f y
+
+acc-<<' : {A : Set}{_<<_ : A → A → Set}{f : A → ℕ} → <-func _<<_ f → (x : A) → Acc _<_ (f x) → Acc _<<_ x 
+acc-<<' fu x (acc g) = acc (λ {y} y<<x → acc-<<' fu y (g (fu y<<x)))
+ 
+acc-<< : {A : Set}{_<<_ : A → A → Set}{f : A → ℕ} → <-func _<<_ f → (x : A) → Acc _<<_ x 
+acc-<< {f = f} fu x = acc-<<' fu x (acc-< (f x))
   
 --bindX : ∀{M} (x : Fin (suc M)) → Val (Fin M) → Val (Fin (suc M)) → Val (Fin M)
 --bindX = {!!}
