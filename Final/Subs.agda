@@ -329,15 +329,6 @@ countSurj : {X Y Z : VarSet} → (τ : X ⇀ Z) → (x : Var X) → (a : Val Y) 
           (τ' : X [ x // Y ] ⇀ Z) → τ ≡ (x / a) >=> τ' → count τ' ≤ count τ
 countSurj ._ x a sur τ' refl = countS x a sur τ'
 
---_⊏_ : ∀{X Y Z} → X ⇀ Y → X ⇀ Z → Set
---σ ⊏ τ = σ ⊑ τ × ¬ (τ ⊑ σ)
-
---_≤_ : ∀{X Y Z} → X ⇀ Z → Y ⇀ Z → Set
---τ' ≤ τ = ∃ (λ σ → τ ≡ σ >=> τ')
---
---_<_ : ∀{X Y Z} → X ⇀ Z → Y ⇀ Z → Set
---τ' < τ = (τ' ≤ τ) × ¬ (τ ≤ τ')
-
 data Acc {A : Set} (_<-t_ : A → A → Set) (x : A) : Set where
   acc : ({y : A} → (y <-t x) → Acc (_<-t_) y) →  Acc (_<-t_) x
   
@@ -362,35 +353,3 @@ acc-<<' fu x (acc g) = acc (λ {y} y<<x → acc-<<' fu y (g (fu y<<x)))
 acc-<< : {A : Set}{_<<_ : A → A → Set}{f : A → ℕ} → <-func _<<_ f → (x : A) → Acc _<<_ x 
 acc-<< {f = f} fu x = acc-<<' fu x (acc-< (f x))
   
---bindX : ∀{M} (x : Fin (suc M)) → Val (Fin M) → Val (Fin (suc M)) → Val (Fin M)
---bindX = {!!}
---
-----data Bind : (M ⇀ N) → Set where
---
---_=<<V_ : ∀{M N} → M ⇀V N → (e : Val M) → Val N 
---f =<<V Z = Z
---f =<<V S e = S (f =<<V e)
---f =<<V fvar x = f x
---
---returnV : ∀{M} → M → Val M
---returnV p = fvar p 
---
---=<<V-left : ∀{M} → (a : Val M) → (returnV =<<V a) ≡ a
---=<<V-left Z = refl
---=<<V-left (S e) = cong S (=<<V-left e)
---=<<V-left (fvar x) = refl
---
---=<<V-right : ∀{M N : Set} → (f : M ⇀V N)
---          → (x : M) → f =<<V (returnV x) ≡ f x   
---=<<V-right f x = refl 
---
---=<<V-assoc : ∀{M N O} → 
---            (f : M ⇀V N) → (g : N ⇀V O) → (e : Val M) → 
---           (g =<<V (f =<<V e)) ≡ (λ x → g =<<V (f x)) =<<V e
---=<<V-assoc f g Z = refl
---=<<V-assoc f g (S e) = cong S (=<<V-assoc f g e)
---=<<V-assoc f g (fvar x) = refl
---
---
---
---
