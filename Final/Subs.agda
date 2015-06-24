@@ -329,15 +329,6 @@ countSurj : {X Y Z : VarSet} → (τ : X ⇀ Z) → (x : Var X) → (a : Val Y) 
           (τ' : X [ x // Y ] ⇀ Z) → τ ≡ (x / a) >=> τ' → count τ' ≤ count τ
 countSurj ._ x a sur τ' refl = countS x a sur τ'
 
---_⊏_ : ∀{X Y Z} → X ⇀ Y → X ⇀ Z → Set
---σ ⊏ τ = σ ⊑ τ × ¬ (τ ⊑ σ)
-
---_≤_ : ∀{X Y Z} → X ⇀ Z → Y ⇀ Z → Set
---τ' ≤ τ = ∃ (λ σ → τ ≡ σ >=> τ')
---
---_<_ : ∀{X Y Z} → X ⇀ Z → Y ⇀ Z → Set
---τ' < τ = (τ' ≤ τ) × ¬ (τ ≤ τ')
-
 data Acc {A : Set} (_<-t_ : A → A → Set) (x : A) : Set where
   acc : ({y : A} → (y <-t x) → Acc (_<-t_) y) →  Acc (_<-t_) x
   

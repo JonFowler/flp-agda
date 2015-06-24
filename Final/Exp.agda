@@ -152,10 +152,6 @@ rep-func V (case e alt₀ e₁ altₛ e₂) e' σ = cong₃ case_alt₀_altₛ_ 
     coerce₁ = subst (λ e' → ((case (S e) alt₀ e₀ altₛ eₛ) ⟦ σ ⟧) ↦ e') (rep-func zero eₛ e σ) 
 ↦-lift (prom r) σ = prom (↦-lift r σ)
 
-↦*-lift : ∀{V X Y}{e e' : Exp V X} → e ↦* e' → (σ : X ⇀ Y) → e ⟦ σ ⟧ ↦* e' ⟦ σ ⟧
-↦*-lift [] σ = []
-↦*-lift (x ∷ r) σ = ↦-lift x σ ∷ ↦*-lift r σ
-
 NRed⁺-sound : ∀{V X Y}{P : Narr}{τ : X ⇀ Y}{e : Exp V X}{e' : Exp V Y} → 
               (r : NRed⁺ P e (e' , τ )) → e ⟦ τ ⟧ ↦* e'
 NRed⁺-sound ([] o τ)  = []
@@ -166,29 +162,29 @@ NRed⁺-sound (_∷_ {τ = τ} (red r) r⁺) = ↦-lift r τ ∷ NRed⁺-sound r
 Susp : ∀{V X} → Exp V X → Set
 Susp e = ∃ (λ x → e ⊸ x)
 
-completeNotSusp : ∀{V X Y}{e : Exp V X}{e' : Exp V Y} → (σ : X ⇀ Y) → e ⟦ σ ⟧ ↦ e' → ¬ (Susp e) →  Σ (Exp V X) (λ e'' → e ↦ e'' × e'' ⟦ σ ⟧ ≡ e')
-completeNotSusp {e = Z} b () ¬s
-completeNotSusp {e = S e} b () ¬s
-completeNotSusp {e = var x} b () ¬s
-completeNotSusp {e = fvar x} b r ¬s = ⊥-elim (¬s (x , susp x))
-completeNotSusp {e = case Z alt₀ e₁ altₛ e₂} b (caseZ ._ ._) ¬s = e₁ , caseZ e₁ e₂ , refl
-completeNotSusp {e = case Z alt₀ e₁ altₛ e₂} b (prom ()) ¬s
-completeNotSusp {m}{V} {e = case S e alt₀ e₁ altₛ e₂} b (caseS ._ ._ ._) ¬s = 
+↦-unlift : ∀{V X Y}{e : Exp V X}{e' : Exp V Y} → (σ : X ⇀ Y) → e ⟦ σ ⟧ ↦ e' → ¬ (Susp e) →  Σ (Exp V X) (λ e'' → e ↦ e'' × e'' ⟦ σ ⟧ ≡ e')
+↦-unlift {e = Z} b () ¬s
+↦-unlift {e = S e} b () ¬s
+↦-unlift {e = var x} b () ¬s
+↦-unlift {e = fvar x} b r ¬s = ⊥-elim (¬s (x , susp x))
+↦-unlift {e = case Z alt₀ e₁ altₛ e₂} b (caseZ ._ ._) ¬s = e₁ , caseZ e₁ e₂ , refl
+↦-unlift {e = case Z alt₀ e₁ altₛ e₂} b (prom ()) ¬s
+↦-unlift {m}{V} {e = case S e alt₀ e₁ altₛ e₂} b (caseS ._ ._ ._) ¬s = 
   e₂ ⟪ e ⟫ , caseS e e₁ e₂ , sym (rep-func zero e₂ e b)
-completeNotSusp {e = case S e alt₀ e₁ altₛ e₂} b (prom ()) ¬s
-completeNotSusp {e = case var x alt₀ e₁ altₛ e₂} b (prom ()) ¬s
-completeNotSusp {e = case fvar x alt₀ e₁ altₛ e₂} b r ¬s = ⊥-elim (¬s (x , subj-susp (susp x)))
-completeNotSusp {e = case case e alt₀ e₁ altₛ e₂ alt₀ e₃ altₛ e₄} b (prom r) ¬s 
-  with completeNotSusp {e = case e alt₀ e₁ altₛ e₂} b r (λ {(x , sus) → ¬s (x , (subj-susp sus))})
-completeNotSusp {V} {X} {Y} {case case e alt₀ e₁ altₛ e₂ alt₀ e₃ altₛ e₄} b (prom r) ¬s 
+↦-unlift {e = case S e alt₀ e₁ altₛ e₂} b (prom ()) ¬s
+↦-unlift {e = case var x alt₀ e₁ altₛ e₂} b (prom ()) ¬s
+↦-unlift {e = case fvar x alt₀ e₁ altₛ e₂} b r ¬s = ⊥-elim (¬s (x , subj-susp (susp x)))
+↦-unlift {e = case case e alt₀ e₁ altₛ e₂ alt₀ e₃ altₛ e₄} b (prom r) ¬s 
+  with ↦-unlift {e = case e alt₀ e₁ altₛ e₂} b r (λ {(x , sus) → ¬s (x , (subj-susp sus))})
+↦-unlift {V} {X} {Y} {case case e alt₀ e₁ altₛ e₂ alt₀ e₃ altₛ e₄} b (prom r) ¬s 
   | e'' , r' , eq = case e'' alt₀ e₃ altₛ e₄  , prom r' , cong₃ case_alt₀_altₛ_ eq refl refl
 
-decSusp : ∀{V X} → (e : Exp V X) → Dec (Susp e)
-decSusp Z = no (λ {( x , () )} )
-decSusp (S e) = no (λ {( x , () )} )
-decSusp (var x) = no (λ {( x , () )} )
-decSusp (fvar x) = yes (x , susp x)
-decSusp (case e alt₀ e₁ altₛ e₂) with decSusp e
-decSusp (case e alt₀ e₁ altₛ e₂) | yes (x , s) = yes (x , subj-susp s)
-decSusp (case e alt₀ e₁ altₛ e₂) | no ¬p = no (λ {(x , subj-susp s) → ¬p (x , s)})
+Susp? : ∀{V X} → (e : Exp V X) → Dec (Susp e)
+Susp? Z = no (λ {( x , () )} )
+Susp? (S e) = no (λ {( x , () )} )
+Susp? (var x) = no (λ {( x , () )} )
+Susp? (fvar x) = yes (x , susp x)
+Susp? (case e alt₀ e₁ altₛ e₂) with Susp? e
+Susp? (case e alt₀ e₁ altₛ e₂) | yes (x , s) = yes (x , subj-susp s)
+Susp? (case e alt₀ e₁ altₛ e₂) | no ¬p = no (λ {(x , subj-susp s) → ¬p (x , s)})
  
